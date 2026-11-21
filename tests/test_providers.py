@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import stat
 import subprocess
@@ -28,6 +29,7 @@ class ProviderTests(unittest.TestCase):
             key: os.environ.get(key)
             for key in (
                 "GROQ_API_KEY",
+                "GROQ_MODEL",
                 "XAI_API_KEY",
                 "OPENAI_API_KEY",
                 "ANTHROPIC_API_KEY",
@@ -85,9 +87,10 @@ class ProviderTests(unittest.TestCase):
 
     def test_groq_request_names_its_user_agent(self):
         os.environ["GROQ_API_KEY"] = "  test-groq  "
-        seen = {}
+        seen = {"calls": 0}
 
         def fake_open(request, timeout=60):
+            seen["calls"] += 1
             seen["ua"] = request.get_header("User-agent")
             seen["auth"] = request.get_header("Authorization")
             raise urllib.error.HTTPError(
@@ -104,10 +107,140 @@ class ProviderTests(unittest.TestCase):
             result = select_provider("groq").complete("system", "user")
         finally:
             urllib.request.urlopen = original
+        self.assertEqual(seen["calls"], 1)
         self.assertEqual(seen["ua"], USER_AGENT)
         self.assertEqual(seen["auth"], "Bearer test-groq")
         self.assertIn("401", result.error)
         self.assertTrue(result.fell_back)
+
+    def _groq_script(self, responses):
+        """Return a urlopen stand-in that records JSON payloads and pops responses."""
+        seen = {"calls": 0, "payloads": []}
+
+        def fake_open(request, timeout=60):
+            seen["calls"] += 1
+            seen["payloads"].append(json.loads(request.data.decode("utf-8")))
+            status, body = responses.pop(0)
+            if status != 200:
+                raise urllib.error.HTTPError(
+                    request.full_url,
+                    status,
+                    "no",
+                    Message(),
+                    io.BytesIO(body.encode("utf-8")),
+                )
+            return io.BytesIO(body.encode("utf-8"))
+
+        return seen, fake_open
+
+    def test_groq_recovers_failed_generation_without_a_second_call(self):
+        os.environ["GROQ_API_KEY"] = "test-groq"
+        os.environ["GROQ_MODEL"] = "openai/gpt-oss-20b"
+        generation = '{"sentiment_score": 0.2, "read": "NVDA up on the session"}'
+        error = json.dumps(
+            {
+                "error": {
+                    "message": "Failed to validate JSON. Please adjust your prompt.",
+                    "type": "invalid_request_error",
+                    "code": "json_validate_failed",
+                    "failed_generation": generation,
+                }
+            }
+        )
+        seen, fake_open = self._groq_script([(400, error)])
+        original = urllib.request.urlopen
+        urllib.request.urlopen = fake_open
+        try:
+            result = select_provider("groq").complete("system", "user")
+        finally:
+            urllib.request.urlopen = original
+        self.assertEqual(seen["calls"], 1)
+        self.assertEqual(seen["payloads"][0]["response_format"], {"type": "json_object"})
+        self.assertEqual(seen["payloads"][0]["reasoning_effort"], "low")
+        self.assertEqual(seen["payloads"][0]["max_tokens"], 1500)
+        self.assertIn("sentiment_score", result.text)
+        self.assertEqual(result.error, "")
+        self.assertFalse(result.fell_back)
+
+    def test_groq_retries_plain_text_when_failed_generation_is_unusable(self):
+        os.environ["GROQ_API_KEY"] = "test-groq"
+        os.environ["GROQ_MODEL"] = "openai/gpt-oss-120b"
+        error = json.dumps(
+            {
+                "error": {
+                    "message": "Failed to validate JSON.",
+                    "code": "json_validate_failed",
+                    "failed_generation": "not json at all",
+                }
+            }
+        )
+        reply = json.dumps(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": 'Here is the object:\n{"sentiment_score": -0.4, "read": "soft tape"}'
+                        }
+                    }
+                ]
+            }
+        )
+        seen, fake_open = self._groq_script([(400, error), (200, reply)])
+        original = urllib.request.urlopen
+        urllib.request.urlopen = fake_open
+        try:
+            result = select_provider("groq").complete("system", "user")
+        finally:
+            urllib.request.urlopen = original
+        self.assertEqual(seen["calls"], 2)
+        self.assertNotIn("response_format", seen["payloads"][1])
+        self.assertEqual(seen["payloads"][1]["reasoning_effort"], "low")
+        self.assertIn("soft tape", result.text)
+        self.assertEqual(result.error, "")
+        self.assertFalse(result.fell_back)
+
+    def test_groq_logs_failed_generation_when_both_attempts_fail(self):
+        os.environ["GROQ_API_KEY"] = "test-groq"
+        os.environ["GROQ_MODEL"] = "openai/gpt-oss-20b"
+        snippet = "score was maybe high but the braces never closed"
+        error = json.dumps(
+            {
+                "error": {
+                    "message": "Failed to validate JSON.",
+                    "code": "json_validate_failed",
+                    "failed_generation": snippet,
+                }
+            }
+        )
+        seen, fake_open = self._groq_script([(400, error), (400, error)])
+        original = urllib.request.urlopen
+        urllib.request.urlopen = fake_open
+        try:
+            result = select_provider("groq").complete("system", "user")
+        finally:
+            urllib.request.urlopen = original
+        self.assertEqual(seen["calls"], 2)
+        self.assertTrue(result.fell_back)
+        self.assertEqual(result.text, "")
+        self.assertTrue(result.error.startswith("failed_generation: " + snippet))
+
+    def test_qwen_payload_omits_reasoning_effort(self):
+        os.environ["GROQ_API_KEY"] = "test-groq"
+        os.environ["GROQ_MODEL"] = "qwen/qwen3.8-27b"
+        reply = json.dumps(
+            {"choices": [{"message": {"content": '{"sentiment_score": 0.0, "read": "unchanged"}'}}]}
+        )
+        seen, fake_open = self._groq_script([(200, reply)])
+        original = urllib.request.urlopen
+        urllib.request.urlopen = fake_open
+        try:
+            result = select_provider("groq").complete("system", "user")
+        finally:
+            urllib.request.urlopen = original
+        self.assertEqual(seen["calls"], 1)
+        self.assertNotIn("reasoning_effort", seen["payloads"][0])
+        self.assertIn("unchanged", result.text)
+        self.assertFalse(result.fell_back)
 
     def test_cursor_binary_finds_local_bin(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -166,6 +299,25 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(result.text, "")
         self.assertIn("rejected", result.error)
         self.assertNotIn("secret-cursor-key", result.error)
+
+    def test_cursor_invalid_key_strips_ansi(self):
+        os.environ["CURSOR_API_KEY"] = "secret-cursor-key"
+        warning = (
+            "\x1b[33mWarning: The provided API key is invalid. "
+            "The API key was loaded from the CURSOR_API_KEY environment variable.\x1b[0m"
+        )
+        provider = CursorProvider()
+        provider.runner = lambda argv, env, timeout: subprocess.CompletedProcess(
+            argv,
+            1,
+            stdout="",
+            stderr=warning,
+        )
+        result = provider.complete("system", "user")
+        self.assertTrue(result.fell_back)
+        self.assertNotIn("\x1b", result.error)
+        self.assertIn("API key is invalid", result.error)
+        self.assertIn("rejected CURSOR_API_KEY", result.error)
 
     def test_cursor_shell_binary_returns_text(self):
         with tempfile.TemporaryDirectory() as raw:
