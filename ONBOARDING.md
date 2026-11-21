@@ -98,7 +98,7 @@ Each due persona:
 5. Pushes `report/YYYY-MM-DD-TICKER-<hash8>` and opens the PR. Commit author is the persona. The branch is never force-pushed.
 6. Requests `gh pr merge --auto --squash`.
 
-A later wake backfills CI and, when checks are green, merges if `HARNESS_MERGE=auto`.
+A later wake backfills CI. If one of this harness's open ledger PRs is behind `main`, or Contributor Guard failed on a stale base while report validation passed, the wake runs `gh pr update-branch` (a merge from the base, never a force-push) and records `branch_updated` in the provenance log. When checks are green it merges if `HARNESS_MERGE=auto`.
 
 If `LEDGER_TOKEN` is missing, the log says so and the job exits 0.
 

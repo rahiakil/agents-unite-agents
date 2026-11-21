@@ -21,10 +21,11 @@ from harness.research import Dossier, gather, has_sources
 from harness.schedule import due_slots, session_date
 from harness.submit import (
     SubmitResult,
+    advance_open_pull_request,
+    branch_update_sha,
     clone_ledger,
     commit_and_push,
     fresh_submit_dir,
-    maybe_merge_green,
     open_pr,
     request_auto_merge,
 )
@@ -515,30 +516,38 @@ def backfill(config: WakeConfig, provenance: Provenance) -> None:
             number = tail if tail.isdigit() else ""
         if not number:
             continue
-        outcome, detail = maybe_merge_green(config.ledger_repo, int(number), config.token, config.merge_mode)
-        if outcome == row.get("merge_outcome") and not detail:
+        outcome, detail = advance_open_pull_request(
+            config.ledger_repo,
+            int(number),
+            config.token,
+            config.merge_mode,
+            prior_outcome=str(row.get("merge_outcome") or ""),
+        )
+        if outcome == row.get("merge_outcome") and (not detail or detail == row.get("failure_reason")):
             continue
         ci = "pending"
         if outcome in {"merged", "closed_unmerged"}:
             ci = "success" if outcome == "merged" else row.get("ci_outcome") or "unknown"
         elif outcome == "checks_failed":
             ci = "failure"
-        elif outcome == "checks_pending":
+        elif outcome in {"checks_pending", "branch_updated"}:
             ci = "pending"
         elif outcome == "merged":
             ci = "success"
-        provenance.append(
-            {
-                "record_type": "status",
-                "attempt_id": row["attempt_id"],
-                "timestamp": now_stamp(),
-                "pr_number": str(number),
-                "pr_url": row.get("pr_url") or "",
-                "ci_outcome": ci,
-                "merge_outcome": outcome,
-                "failure_reason": "" if outcome in {"merged", "checks_pending", "auto_merge_requested"} else detail[:500],
-            }
-        )
+        updated_sha = branch_update_sha(detail) if outcome == "branch_updated" else ""
+        status = {
+            "record_type": "status",
+            "attempt_id": row["attempt_id"],
+            "timestamp": now_stamp(),
+            "pr_number": str(number),
+            "pr_url": row.get("pr_url") or "",
+            "ci_outcome": ci,
+            "merge_outcome": outcome,
+            "failure_reason": "" if outcome in {"merged", "checks_pending", "auto_merge_requested"} else detail[:500],
+        }
+        if updated_sha:
+            status["branch_update_sha"] = updated_sha
+        provenance.append(status)
         print(f"backfill {row['attempt_id']} ci={ci} merge={outcome}")
 
 
@@ -569,62 +578,65 @@ def run_wake(config: WakeConfig, *, gather_fn=gather) -> list[dict]:
         print("GROQ_API_KEY is not set. Reports will use the no-key writer on fetched sources.")
     session = (config.session or session_date(config.now)).isoformat()
     results = []
-    for persona in personas:
-        try:
-            slots = _slots_for(persona, config, session)
-        except Exception as exc:
-            print(f"{persona.id} schedule failed: {exc}", file=sys.stderr)
-            continue
-        avoid: set[str] = set()
-        for slot, target in slots:
-            if _skip(provenance, persona.id, session, slot.id, config.force):
-                print(f"{persona.id} {slot.id} already recorded")
-                continue
+    try:
+        for persona in personas:
             try:
-                results.append(
-                    run_slot(
-                        config=config,
-                        persona=persona,
-                        slot=slot,
-                        scheduled_for=target,
-                        session=session,
-                        universe=universe,
-                        ledger_root=ledger_root,
-                        provenance=provenance,
-                        provider=None,
-                        requested=requested,
-                        gather_fn=gather_fn,
-                        avoid=avoid,
-                    )
-                )
+                slots = _slots_for(persona, config, session)
             except Exception as exc:
-                traceback.print_exc()
-                record = {
-                    "record_type": "attempt",
-                    "attempt_id": f"{persona.id}|{session}|{slot.id}",
-                    "timestamp": now_stamp(),
-                    "persona_id": persona.id,
-                    "archetype": persona.archetype,
-                    "is_ai_agent": True,
-                    "contributor_kind": "ai_agent_persona",
-                    "slot": slot.id,
-                    "session_date": session,
-                    "local_validation": "fail",
-                    "failure_reason": f"{type(exc).__name__}: {exc}"[:500],
-                    "merge_outcome": "not_submitted",
-                    "ci_outcome": "not_run",
-                    "dry_run": config.dry_run,
-                    "slot_status": "fail",
-                    "disclosure": DISCLOSURE,
+                print(f"{persona.id} schedule failed: {exc}", file=sys.stderr)
+                continue
+            avoid: set[str] = set()
+            for slot, target in slots:
+                if _skip(provenance, persona.id, session, slot.id, config.force):
+                    print(f"{persona.id} {slot.id} already recorded")
+                    continue
+                try:
+                    results.append(
+                        run_slot(
+                            config=config,
+                            persona=persona,
+                            slot=slot,
+                            scheduled_for=target,
+                            session=session,
+                            universe=universe,
+                            ledger_root=ledger_root,
+                            provenance=provenance,
+                            provider=None,
+                            requested=requested,
+                            gather_fn=gather_fn,
+                            avoid=avoid,
+                        )
+                    )
+                except Exception as exc:
+                    traceback.print_exc()
+                    record = {
+                        "record_type": "attempt",
+                        "attempt_id": f"{persona.id}|{session}|{slot.id}",
+                        "timestamp": now_stamp(),
+                        "persona_id": persona.id,
+                        "archetype": persona.archetype,
+                        "is_ai_agent": True,
+                        "contributor_kind": "ai_agent_persona",
+                        "slot": slot.id,
+                        "session_date": session,
+                        "local_validation": "fail",
+                        "failure_reason": f"{type(exc).__name__}: {exc}"[:500],
+                        "merge_outcome": "not_submitted",
+                        "ci_outcome": "not_run",
+                        "dry_run": config.dry_run,
+                        "slot_status": "fail",
+                        "disclosure": DISCLOSURE,
                         "assigned_provider": assigned_provider_name(persona, requested),
                         "provider": assigned_provider_name(persona, requested),
                         "model": persona.groq_model,
                         "assigned_model": persona.groq_model,
-                    "prompt_version": persona.prompt_version,
-                }
-                provenance.append(record)
-                results.append(record)
-                print(f"{persona.id} {slot.id} failed and the wake continued: {exc}")
+                        "prompt_version": persona.prompt_version,
+                    }
+                    provenance.append(record)
+                    results.append(record)
+                    print(f"{persona.id} {slot.id} failed and the wake continued: {exc}")
+    finally:
+        backfill(config, provenance)
     return results
 
 

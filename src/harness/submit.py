@@ -38,6 +38,20 @@ def auto_merge_command(repo: str, number: int) -> list[str]:
     return ["gh", "pr", "merge", str(number), "--repo", repo, "--auto", "--squash"]
 
 
+def update_branch_command(repo: str, number: int) -> list[str]:
+    """Merge the base branch in. Never rebase and never force-push.
+
+    ``gh pr update-branch`` calls GitHub's update-branch API, which adds a
+    merge commit from the base. ``--rebase`` is omitted because it rewrites
+    the contributor branch.
+    """
+    command = ["gh", "pr", "update-branch", str(number), "--repo", repo]
+    banned = {"--force", "-f", "--force-with-lease", "--force-if-includes", "--rebase"}
+    if any(part in banned or part.startswith("+") for part in command):
+        raise PushRefused("update-branch must not rewrite history")
+    return command
+
+
 def direct_merge_command(repo: str, number: int) -> list[str]:
     return ["gh", "pr", "merge", str(number), "--repo", repo, "--squash"]
 
@@ -243,6 +257,25 @@ def request_auto_merge(repo: str, number: int, token: str, mode: str) -> tuple[s
     return "auto_merge_rejected", detail
 
 
+def _item_state(item: dict) -> str:
+    if "conclusion" in item or "status" in item and "state" not in item:
+        status = str(item.get("status") or "").upper()
+        conclusion = str(item.get("conclusion") or "").upper()
+        if status and status != "COMPLETED":
+            return "pending"
+        if conclusion in {"SUCCESS", "NEUTRAL", "SKIPPED"}:
+            return "success"
+        if conclusion:
+            return "failure"
+        return "pending"
+    state = str(item.get("state") or item.get("conclusion") or "").upper()
+    if state in {"SUCCESS", "NEUTRAL", "SKIPPED"}:
+        return "success"
+    if state in {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT"}:
+        return "failure"
+    return "pending"
+
+
 def interpret_checks(rollup: list | None) -> str:
     if not rollup:
         return "pending"
@@ -251,25 +284,7 @@ def interpret_checks(rollup: list | None) -> str:
         if not isinstance(item, dict):
             states.append("pending")
             continue
-        if "conclusion" in item or "status" in item and "state" not in item:
-            status = str(item.get("status") or "").upper()
-            conclusion = str(item.get("conclusion") or "").upper()
-            if status and status != "COMPLETED":
-                states.append("pending")
-            elif conclusion in {"SUCCESS", "NEUTRAL", "SKIPPED"}:
-                states.append("success")
-            elif conclusion:
-                states.append("failure")
-            else:
-                states.append("pending")
-            continue
-        state = str(item.get("state") or item.get("conclusion") or "").upper()
-        if state in {"SUCCESS", "NEUTRAL", "SKIPPED"}:
-            states.append("success")
-        elif state in {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT"}:
-            states.append("failure")
-        else:
-            states.append("pending")
+        states.append(_item_state(item))
     if any(item == "failure" for item in states):
         return "failure"
     if any(item == "pending" for item in states):
@@ -277,6 +292,93 @@ def interpret_checks(rollup: list | None) -> str:
     if any(item == "success" for item in states):
         return "success"
     return "pending"
+
+
+def _check_name(item: dict) -> str:
+    return str(item.get("name") or item.get("context") or "").strip().lower()
+
+
+def _is_scope_check(name: str) -> bool:
+    return name == "scope-and-validate" or name.endswith("/scope-and-validate")
+
+
+def _is_validate_check(name: str) -> bool:
+    # The Validate Report job is named "validate". The Contributor Guard job
+    # is "scope-and-validate" and must not count as that pass.
+    return name == "validate" or name.endswith("/validate")
+
+
+def scope_failed_validate_passed(rollup: list | None) -> bool:
+    """True when Contributor Guard failed and Validate Report succeeded.
+
+    A stale base makes ``scope-and-validate`` fail on the pull_request event
+    (the diff includes another persona's files) while ``validate`` still
+    passes. The push-event run of the same job can be green on that commit,
+    so any failing scope run counts.
+    """
+    if not isinstance(rollup, list):
+        return False
+    scope_states: list[str] = []
+    validate_states: list[str] = []
+    for item in rollup:
+        if not isinstance(item, dict):
+            continue
+        name = _check_name(item)
+        state = _item_state(item)
+        if _is_validate_check(name):
+            validate_states.append(state)
+        elif _is_scope_check(name):
+            scope_states.append(state)
+    if "failure" not in scope_states or "failure" in validate_states:
+        return False
+    return "success" in validate_states
+
+
+def _owned_report_head(snapshot: dict) -> bool:
+    head = str(snapshot.get("headRefName") or "")
+    if not head:
+        return True
+    return head.startswith("report/")
+
+
+def needs_branch_update(snapshot: dict, *, prior_outcome: str = "") -> str:
+    """Return why this open report PR should get ``gh pr update-branch``.
+
+    ``behind`` means GitHub says the head is behind the base. ``stale_scope``
+    means Contributor Guard failed while Validate Report passed, which is
+    what a stale base looks like when the merge state is BLOCKED rather than
+    BEHIND. After one refresh, a still-failing scope check is left alone
+    until the base moves and the PR is BEHIND again.
+    """
+    if snapshot.get("error"):
+        return ""
+    if snapshot.get("mergedAt") or str(snapshot.get("state") or "").upper() in {"MERGED", "CLOSED"}:
+        return ""
+    if not _owned_report_head(snapshot):
+        return ""
+    state = str(snapshot.get("mergeStateStatus") or "").upper()
+    if state == "DIRTY":
+        return ""
+    if state == "BEHIND":
+        return "behind"
+    if prior_outcome == "branch_updated":
+        return ""
+    if scope_failed_validate_passed(snapshot.get("statusCheckRollup")):
+        return "stale_scope"
+    return ""
+
+
+def branch_update_sha(detail: str) -> str:
+    marker = "sha="
+    start = detail.find(marker)
+    if start < 0:
+        return ""
+    token = detail[start + len(marker) :].split()[0].strip().rstrip(":;,.")
+    if len(token) < 7:
+        return ""
+    if any(char not in "0123456789abcdefABCDEF" for char in token):
+        return ""
+    return token
 
 
 def pull_request_snapshot(repo: str, number: int, token: str) -> dict:
@@ -290,7 +392,7 @@ def pull_request_snapshot(repo: str, number: int, token: str) -> dict:
             "--repo",
             repo,
             "--json",
-            "state,mergedAt,statusCheckRollup,url,mergeable,autoMergeRequest",
+            "state,mergedAt,statusCheckRollup,url,mergeable,mergeStateStatus,headRefName,headRefOid,autoMergeRequest",
         ],
         cwd=Path("."),
         env=env,
@@ -304,10 +406,9 @@ def pull_request_snapshot(repo: str, number: int, token: str) -> dict:
         return {"error": "pr view returned non-JSON"}
 
 
-def maybe_merge_green(repo: str, number: int, token: str, mode: str) -> tuple[str, str]:
+def _merge_open_snapshot(repo: str, number: int, token: str, mode: str, snapshot: dict) -> tuple[str, str]:
     if mode not in {"auto", "1", "true", ""}:
         return "checks_pending", "direct merge is only used when HARNESS_MERGE=auto"
-    snapshot = pull_request_snapshot(repo, number, token)
     if snapshot.get("error"):
         return "checks_pending", str(snapshot["error"])
     if snapshot.get("mergedAt") or str(snapshot.get("state") or "").upper() == "MERGED":
@@ -327,3 +428,47 @@ def maybe_merge_green(repo: str, number: int, token: str, mode: str) -> tuple[st
     if result.returncode == 0:
         return "merged", detail
     return "merge_failed", detail
+
+
+def maybe_merge_green(repo: str, number: int, token: str, mode: str) -> tuple[str, str]:
+    return _merge_open_snapshot(repo, number, token, mode, pull_request_snapshot(repo, number, token))
+
+
+def update_pr_branch(repo: str, number: int, token: str) -> tuple[str, str]:
+    env = git_env(token)
+    result = _run(update_branch_command(repo, number), cwd=Path("."), env=env, token=token)
+    detail = ((result.stdout or "") + " " + (result.stderr or "")).strip()[-400:]
+    if result.returncode == 0:
+        return "updated", detail
+    lowered = detail.lower()
+    if "up to date" in lowered or "up-to-date" in lowered:
+        return "current", detail
+    return "failed", detail
+
+
+def advance_open_pull_request(
+    repo: str,
+    number: int,
+    token: str,
+    mode: str,
+    prior_outcome: str = "",
+) -> tuple[str, str]:
+    """Update a behind report PR, otherwise merge it once checks are green."""
+    snapshot = pull_request_snapshot(repo, number, token)
+    if snapshot.get("error"):
+        return "checks_pending", str(snapshot["error"])
+    reason = needs_branch_update(snapshot, prior_outcome=prior_outcome)
+    if reason:
+        status, detail = update_pr_branch(repo, number, token)
+        sha = str(snapshot.get("headRefOid") or "")
+        if status == "updated":
+            note = f"update-branch ({reason})"
+            if sha:
+                note += f" sha={sha}"
+            if detail:
+                note += f": {detail}"
+            return "branch_updated", note[:500]
+        if status == "current":
+            return "checks_pending", "pull request branch is up to date; waiting for checks to rerun"
+        return "branch_update_failed", f"update-branch ({reason}) failed: {detail}"[:500]
+    return _merge_open_snapshot(repo, number, token, mode, snapshot)
