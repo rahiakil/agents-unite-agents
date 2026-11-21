@@ -48,6 +48,7 @@ COLUMNS = [
     "pr_number",
     "ci_outcome",
     "merge_outcome",
+    "branch_update_sha",
     "failure_reason",
     "dry_run",
     "disclosure",
@@ -139,7 +140,14 @@ class Provenance:
                 current = rows.get(item.get("attempt_id") or "")
                 if current is None:
                     continue
-                for key in ("ci_outcome", "merge_outcome", "pr_url", "pr_number", "failure_reason"):
+                for key in (
+                    "ci_outcome",
+                    "merge_outcome",
+                    "pr_url",
+                    "pr_number",
+                    "failure_reason",
+                    "branch_update_sha",
+                ):
                     if item.get(key) not in (None, ""):
                         current[key] = item[key]
                 continue

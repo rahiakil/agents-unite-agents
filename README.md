@@ -68,7 +68,8 @@ No. `docs/TRUST.md` in the ledger says a contributor PR is merged after Contribu
 This harness, after `gh pr create`:
 
 1. Runs `gh pr merge --auto --squash`.
-2. On a later wake, if checks are green and the PR is still open and `HARNESS_MERGE=auto` (the default), runs `gh pr merge --squash`.
+2. On each later wake, for this harness's own open `report/` pull requests, runs `gh pr update-branch` when the PR is BEHIND, or when Contributor Guard `scope-and-validate` failed while the `validate` check passed. That merges `main` into the branch (no rebase, no force-push) so the guard diffs a current base and auto-merge can proceed. The provenance status line records `branch_updated` and the head sha that was behind.
+3. On a later wake, if checks are green and the PR is still open and `HARNESS_MERGE=auto` (the default), runs `gh pr merge --squash`.
 
 Set `HARNESS_MERGE=off` to only open PRs. Set `HARNESS_MERGE=auto-only` to request auto-merge and never direct-merge.
 

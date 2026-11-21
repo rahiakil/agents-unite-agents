@@ -12,7 +12,7 @@ from harness.personas import load_personas
 from harness.provenance import Provenance
 from harness.textutil import EM_DASH
 from harness.universe import load_universe
-from harness.wake import WakeConfig, _candidates, _skip, exit_code, run_wake, slot_status
+from harness.wake import WakeConfig, _candidates, _skip, backfill, exit_code, run_wake, slot_status
 
 
 def _config(tmp: Path, provenance: Path) -> WakeConfig:
@@ -138,6 +138,48 @@ class ReportTests(unittest.TestCase):
             sent["merge_outcome"] = "auto_merge_requested"
             log.append(sent)
             self.assertTrue(_skip(log, "au-mira-retail", "2026-11-21", "premarket", False))
+
+    def test_backfill_records_a_branch_update(self):
+        import harness.wake as wake
+
+        def fake(repo, number, token, mode, prior_outcome=""):
+            self.assertEqual(number, 40)
+            self.assertEqual(prior_outcome, "auto_merge_requested")
+            return "branch_updated", "update-branch (behind) sha=4a93befec1941e14cc2134b20f5a34f937f6e2ad"
+
+        original = wake.advance_open_pull_request
+        wake.advance_open_pull_request = fake
+        try:
+            with tempfile.TemporaryDirectory() as raw:
+                log = Provenance(Path(raw) / "attempts.jsonl")
+                log.append(
+                    {
+                        "attempt_id": "au-elena-fund|2026-11-21|premarket",
+                        "persona_id": "au-elena-fund",
+                        "github_username": "au-elena-fund",
+                        "branch": "report/2026-11-21-ABBV-f570eafc",
+                        "session_date": "2026-11-21",
+                        "slot": "premarket",
+                        "local_validation": "pass",
+                        "dry_run": False,
+                        "pr_number": "40",
+                        "pr_url": "https://github.com/rahiakil/agents-unite/pull/40",
+                        "merge_outcome": "auto_merge_requested",
+                        "ci_outcome": "pending",
+                    }
+                )
+                before = log.jsonl_path.read_text(encoding="utf-8")
+                config = replace(_config(Path(raw), log.jsonl_path), dry_run=False, token="test-token", backfill=True)
+                backfill(config, log)
+                after = log.jsonl_path.read_text(encoding="utf-8")
+                latest = log.latest()["au-elena-fund|2026-11-21|premarket"]
+        finally:
+            wake.advance_open_pull_request = original
+        self.assertTrue(after.startswith(before))
+        self.assertEqual(latest["merge_outcome"], "branch_updated")
+        self.assertEqual(latest["ci_outcome"], "pending")
+        self.assertEqual(latest["branch_update_sha"], "4a93befec1941e14cc2134b20f5a34f937f6e2ad")
+        self.assertIn("behind", latest["failure_reason"])
 
     def test_missing_ledger_token_message_is_soft(self):
         from harness.wake import MISSING_TOKEN
