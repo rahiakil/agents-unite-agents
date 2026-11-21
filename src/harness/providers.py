@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -72,14 +73,57 @@ def _cost(model: str, prompt_tokens: int | None, completion_tokens: int | None) 
     return None
 
 
+def _http_error_body(exc: urllib.error.HTTPError) -> str:
+    try:
+        return exc.read().decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+
+
 def _error_detail(exc: Exception) -> str:
     if isinstance(exc, urllib.error.HTTPError):
-        try:
-            body = exc.read().decode("utf-8", errors="replace")[:300]
-        except Exception:
-            body = ""
-        return f"HTTP {exc.code}: {body or exc.reason}"
+        body = _http_error_body(exc)
+        shown = body[:300] if body else str(exc.reason)
+        return f"HTTP {exc.code}: {shown}"
     return f"{type(exc).__name__}: {exc}"
+
+
+def _strip_ansi(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", text)
+
+
+def _snippet(text: str, limit: int = 180) -> str:
+    compact = " ".join(text.split())
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 3] + "..."
+
+
+def _failed_generation(body: str) -> str:
+    """Pull Groq's failed_generation field out of a JSON error body."""
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return ""
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if isinstance(error, dict):
+        return str(error.get("failed_generation") or "")
+    return ""
+
+
+def _json_validation_failure(detail: str) -> bool:
+    lowered = detail.lower()
+    return "json_validate_failed" in lowered or "failed to validate json" in lowered
+
+
+def _retryable_http(detail: str) -> bool:
+    """Retry a Groq HTTP failure once, except auth and rate-limit responses."""
+    if not detail.startswith("HTTP "):
+        return False
+    code = detail[5:].split(":", 1)[0].strip()
+    if code in {"401", "403", "429"}:
+        return False
+    return code.isdigit() and (code.startswith("4") or code.startswith("5"))
 
 
 def _failed(provider: str, model: str, started: float, exc: Exception) -> Completion:
@@ -224,6 +268,23 @@ def _message_text(message: dict) -> str:
     return str(content or "")
 
 
+def _groq_message_text(body: dict) -> str:
+    message = ((body.get("choices") or [{}])[0].get("message") or {})
+    text = _message_text(message)
+    if text.strip():
+        return text
+    for key in ("reasoning", "reasoning_content"):
+        extra = message.get(key)
+        if isinstance(extra, str) and extra.strip():
+            return extra
+    return text
+
+
+def _usable_model_json(text: str) -> bool:
+    payload = parse_model_json(text)
+    return isinstance(payload, dict) and "sentiment_score" in payload
+
+
 class GroqProvider(_OpenAIChat):
     name = "groq"
     default_model = "openai/gpt-oss-20b"
@@ -231,9 +292,110 @@ class GroqProvider(_OpenAIChat):
     model_envs = ("GROQ_MODEL", "HARNESS_GROQ_MODEL", "SIM_GROQ_MODEL")
     url = "https://api.groq.com/openai/v1/chat/completions"
 
-    def extra_payload(self) -> dict:
-        # Ask for JSON so the report parser can read sentiment_score and read.
-        return {"response_format": {"type": "json_object"}, "max_tokens": 700}
+    def _payload(self, model: str, system: str, user: str, *, json_mode: bool) -> dict:
+        payload = {
+            "model": model,
+            "temperature": 0,
+            "max_tokens": 1500,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        }
+        # gpt-oss spends the default reasoning budget before the JSON object,
+        # and Groq then rejects the truncated generation.
+        if "gpt-oss" in model:
+            payload["reasoning_effort"] = "low"
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
+        return payload
+
+    def _call(self, payload: dict, token: str) -> tuple[dict | None, float, str]:
+        try:
+            body, latency = _post_json(
+                self.url,
+                payload,
+                {"Authorization": f"Bearer {token}"},
+            )
+            return body, latency, ""
+        except urllib.error.HTTPError as exc:
+            return None, 0.0, f"HTTP {exc.code}: {_http_error_body(exc)}"
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError) as exc:
+            return None, 0.0, _error_detail(exc)
+
+    def complete(self, system: str, user: str) -> Completion:
+        model = self.model_name()
+        started = time.perf_counter()
+        token = _secret(self.env_key)
+        body, latency, error = self._call(self._payload(model, system, user, json_mode=True), token)
+        if body is not None and _usable_model_json(_groq_message_text(body)):
+            return self._success(model, body, latency, started)
+        raw_body = error.split(": ", 1)[1] if error.startswith("HTTP ") and ": " in error else ""
+        recovered = _failed_generation(raw_body)
+        if _usable_model_json(recovered):
+            print(f"groq {model}: recovered JSON from failed_generation ({_snippet(recovered, 120)})")
+            return self._text_success(model, recovered, latency, started)
+        if body is None and not (_json_validation_failure(error) or _retryable_http(error)):
+            snippet = _snippet(recovered)
+            if snippet:
+                error = f"failed_generation: {snippet}; {error}"
+            return self._failure(model, error, started)
+        retry_body, retry_latency, retry_error = self._call(
+            self._payload(model, system, user, json_mode=False),
+            token,
+        )
+        if retry_body is not None and _usable_model_json(_groq_message_text(retry_body)):
+            print(f"groq {model}: plain retry after json mode failed")
+            return self._success(model, retry_body, latency + retry_latency, started)
+        snippet = _snippet(recovered)
+        parts = []
+        if snippet:
+            parts.append(f"failed_generation: {snippet}")
+        parts.append(retry_error or error or "plain retry was not usable JSON")
+        return self._failure(model, "; ".join(parts), started)
+
+    def _failure(self, model: str, error: str, started: float) -> Completion:
+        return Completion(
+            provider=self.name,
+            model=model,
+            text="",
+            prompt_tokens=None,
+            completion_tokens=None,
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            cost_usd=_cost(model, None, None),
+            error=error[:500],
+            fell_back=True,
+        )
+
+    def _success(self, model: str, body: dict, latency: float, started: float) -> Completion:
+        text = _groq_message_text(body)
+        usage = body.get("usage") or {}
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        return Completion(
+            provider=self.name,
+            model=model,
+            text=text,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            latency_ms=latency or (time.perf_counter() - started) * 1000.0,
+            cost_usd=_cost(model, prompt_tokens, completion_tokens),
+            error="",
+            fell_back=False,
+        )
+
+    def _text_success(self, model: str, text: str, latency: float, started: float) -> Completion:
+        return Completion(
+            provider=self.name,
+            model=model,
+            text=text,
+            prompt_tokens=None,
+            completion_tokens=None,
+            latency_ms=latency or (time.perf_counter() - started) * 1000.0,
+            cost_usd=_cost(model, None, None),
+            error="",
+            fell_back=False,
+        )
 
 
 class HuggingFaceProvider(_OpenAIChat):
@@ -522,8 +684,10 @@ class CursorProvider:
         finally:
             shutil.rmtree(workspace, ignore_errors=True)
         latency = (time.perf_counter() - started) * 1000.0
-        if result.returncode != 0:
-            detail = _redact((result.stderr or result.stdout or "cursor-agent failed").strip())
+        if result.returncode != 0 and not _usable_model_json(result.stdout or ""):
+            detail = _strip_ansi(_redact((result.stderr or result.stdout or "cursor-agent failed").strip()))
+            if "api key is invalid" in detail.lower() or "invalid api key" in detail.lower():
+                detail = "cursor-agent rejected CURSOR_API_KEY as invalid. " + detail
             return Completion(
                 provider=self.name,
                 model=logged,

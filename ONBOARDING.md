@@ -40,7 +40,7 @@ export HARNESS_PROVIDER=groq
 export GROQ_API_KEY=...
 ```
 
-No key still works. The wake fetches real bars and headlines and writes the report from those numbers.
+No key still works. The wake fetches real bars and headlines and writes the report from those numbers. If Groq rejects JSON mode (`json_validate_failed`), the writer keeps a usable `failed_generation` or retries once as plain text and logs a short snippet. A rejected Cursor key is logged without ANSI color codes, then the same Groq path runs.
 
 Two shipped cards, Elena Vasquez and Nina Cho, set `provider: cursor`. That calls the Cursor CLI in print mode (`cursor-agent --print`, or `agent --print` if that is the binary on `PATH`). Install it with:
 
