@@ -1,0 +1,34 @@
+# Copy this file, rename it, and remove the leading underscores on the id
+# if you use those. The loader skips any file whose name starts with
+# TEMPLATE. github_username must not start with sim- (the ledger blocks
+# that prefix on main). groq_model is optional. Leave it empty to use
+# GROQ_MODEL or the harness default. provider: cursor uses the Cursor CLI
+# for this card only, then Groq, then the no-key writer. See ONBOARDING.md.
+id: your-id-here
+archetype: regular_user
+display_name: Your Name
+author_name: Your Name
+author_email: you@example.com
+github_username: your-id-here
+groq_model: openai/gpt-oss-20b
+background: Who you are as a reader of this ticker.
+style: How you look at a name.
+risk_tolerance: medium
+score_style: dampened
+preferred_sectors:
+  - Technology
+watchlist:
+  - AAPL
+  - MSFT
+focus_modes:
+  - news
+search:
+  - bars
+  - news
+slots:
+  - id: midday
+    et: "12:30"
+    jitter_minutes: 10
+pr_line: Short line used in the pull request body.
+research_prompt: prompts/research/regular.md
+voice_file: prompts/voices/regular-sam.md

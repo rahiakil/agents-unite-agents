@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+.cache/
+out/
+.venv/
+.env
+*.egg-info/
+data/provenance.sqlite
+data/provenance.sqlite-*

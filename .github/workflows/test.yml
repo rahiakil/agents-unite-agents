@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/checkout@v5
+        with:
+          repository: rahiakil/agents-unite
+          ref: main
+          path: .cache/ledger
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        env:
+          LEDGER_ROOT: ${{ github.workspace }}/.cache/ledger
+          PYTHONPATH: src
+        run: python3 -m unittest discover -s tests -v

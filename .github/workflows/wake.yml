@@ -1,0 +1,105 @@
+name: Persona wake
+
+# Weekdays, every 30 minutes from 11:05 through 23:35 UTC.
+# That span covers pre-market through the after-close in both EST and EDT.
+# Each wake files only the personas whose jittered New York slot falls in
+# the lookback window. See ONBOARDING.md for secrets.
+on:
+  schedule:
+    - cron: "5,35 11-23 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate only. Do not open ledger pull requests.
+        type: boolean
+        default: false
+      persona:
+        description: Optional persona id. Empty runs whoever is due.
+        type: string
+        default: ""
+      all_personas:
+        description: Run the first slot of every persona.
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: persona-wake
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Groq is the default writer. Two persona cards set provider: cursor
+      # and call the CLI. Everyone else stays on Groq. Empty keys fall
+      # through to the no-key writer.
+      HARNESS_PROVIDER: groq
+      HARNESS_MERGE: auto
+      LEDGER_REPO: rahiakil/agents-unite
+      LEDGER_BASE: main
+      LEDGER_REF: main
+      LEDGER_TOKEN: ${{ secrets.LEDGER_TOKEN }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+      # Optional. Unused unless HARNESS_PROVIDER is changed.
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Cursor CLI
+        run: |
+          set +e
+          curl https://cursor.com/install -fsS | bash
+          status=$?
+          set -e
+          if [ -d "$HOME/.cursor/bin" ]; then
+            echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+          else
+            echo "Cursor CLI was not installed (exit ${status}). Cursor personas will fall back to Groq, then the no-key writer."
+          fi
+
+      - name: Wake
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          ALL_PERSONAS: ${{ inputs.all_personas }}
+          PERSONA: ${{ inputs.persona }}
+        run: |
+          set -euo pipefail
+          args=(--provenance data/attempts.jsonl)
+          if [ "${DRY_RUN}" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          if [ "${ALL_PERSONAS}" = "true" ]; then
+            args+=(--all-personas)
+          fi
+          if [ -n "${PERSONA}" ]; then
+            args+=(--persona "${PERSONA}")
+          fi
+          PYTHONPATH=src python3 -m harness wake "${args[@]}"
+
+      - name: Publish provenance
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/attempts.jsonl data/attempts.csv
+          if git diff --cached --quiet; then
+            echo "No provenance changes."
+            exit 0
+          fi
+          git commit -m "provenance: append wake log"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push
