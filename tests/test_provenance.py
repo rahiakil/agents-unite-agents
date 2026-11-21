@@ -4,7 +4,7 @@ from pathlib import Path
 
 import support  # noqa: F401
 
-from harness.provenance import Provenance
+from harness.provenance import Provenance, union_jsonl
 
 
 class ProvenanceTests(unittest.TestCase):
@@ -53,6 +53,15 @@ class ProvenanceTests(unittest.TestCase):
             self.assertEqual(latest["ci_outcome"], "success")
             self.assertIn("merged", log.csv_path.read_text(encoding="utf-8"))
             self.assertTrue(log.sqlite_path.is_file())
+
+    def test_union_jsonl_keeps_both_sides(self):
+        left = '{"attempt_id":"a"}\n'
+        right = "<<<<<<< HEAD\n" + left + "=======\n" + '{"attempt_id":"b"}\n' + ">>>>>>> wake\n"
+        merged = union_jsonl(left, right)
+        self.assertEqual(merged.count("\n"), 2)
+        self.assertIn('"attempt_id":"a"', merged)
+        self.assertIn('"attempt_id":"b"', merged)
+        self.assertNotIn("<<<<<<<", merged)
 
 
 if __name__ == "__main__":

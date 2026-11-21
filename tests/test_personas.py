@@ -58,6 +58,8 @@ class PersonaTests(unittest.TestCase):
         self.assertIn("secrets.XAI_API_KEY", text)
         self.assertIn("secrets.CURSOR_API_KEY", text)
         self.assertIn("https://cursor.com/install", text)
+        self.assertIn('"$HOME/.local/bin"', text)
+        self.assertIn("if: always()", text)
         self.assertNotIn("llama-3.1-8b-instant", text)
         self.assertNotIn("HARNESS_PROVIDER: cursor", text)
 

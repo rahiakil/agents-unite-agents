@@ -92,6 +92,16 @@ class SubmitResult:
     detail: str
 
 
+def fresh_submit_dir() -> Path:
+    """Path for a new ledger clone. The path itself must not exist yet.
+
+    ``tempfile.mkdtemp`` creates a directory. Passing that directory to
+    ``git clone`` is a reuse, and ``clone_ledger`` refuses it.
+    """
+    parent = Path(tempfile.mkdtemp(prefix="au-ledger-"))
+    return parent / "repo"
+
+
 def clone_ledger(dest: Path, repo: str, ref: str, token: str) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     env = git_env(token)
