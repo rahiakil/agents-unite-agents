@@ -42,6 +42,7 @@ COLUMNS = [
     "sources_json",
     "tape_json",
     "local_validation",
+    "slot_status",
     "branch",
     "pr_url",
     "pr_number",
@@ -59,11 +60,57 @@ def now_stamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def repair_rebase_jsonl(path: str | Path = "data/attempts.jsonl") -> None:
+    """Replace a conflicted JSONL with the union of the two rebase stages."""
+    import subprocess
+
+    def stage(number: int) -> str:
+        result = subprocess.run(
+            ["git", "show", f":{number}:{path}"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout if result.returncode == 0 else ""
+
+    target = Path(path)
+    left = stage(2)
+    right = stage(3)
+    if left and right:
+        text = union_jsonl(left, right)
+    elif left or right:
+        text = left or right
+        if text and not text.endswith("\n"):
+            text += "\n"
+    else:
+        return
+    target.write_text(text, encoding="utf-8")
+    Provenance(target).rebuild()
+
+
+def union_jsonl(left: str, right: str) -> str:
+    """Keep every unique JSON line from two logs. Drop conflict markers."""
+    seen: set[str] = set()
+    lines: list[str] = []
+    for source in (left, right):
+        for line in source.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith(("<<<<<<<", "=======", ">>>>>>>")):
+                continue
+            if stripped in seen:
+                continue
+            seen.add(stripped)
+            lines.append(stripped)
+    if not lines:
+        return ""
+    return "\n".join(lines) + "\n"
+
+
 class Provenance:
-    def __init__(self, jsonl_path: Path):
-        self.jsonl_path = jsonl_path
-        self.csv_path = jsonl_path.with_suffix(".csv")
-        self.sqlite_path = jsonl_path.with_name("provenance.sqlite")
+    def __init__(self, jsonl_path: Path | str):
+        self.jsonl_path = Path(jsonl_path)
+        self.csv_path = self.jsonl_path.with_suffix(".csv")
+        self.sqlite_path = self.jsonl_path.with_name("provenance.sqlite")
         self.jsonl_path.parent.mkdir(parents=True, exist_ok=True)
         if not self.jsonl_path.exists():
             self.jsonl_path.write_text("", encoding="utf-8")

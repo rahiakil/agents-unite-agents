@@ -65,8 +65,12 @@ jobs:
           curl https://cursor.com/install -fsS | bash
           status=$?
           set -e
-          if [ -d "$HOME/.cursor/bin" ]; then
+          if [ -x "$HOME/.local/bin/cursor-agent" ] || [ -x "$HOME/.local/bin/agent" ]; then
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+            echo "Cursor CLI installed at $HOME/.local/bin"
+          elif [ -d "$HOME/.cursor/bin" ]; then
             echo "$HOME/.cursor/bin" >> "$GITHUB_PATH"
+            echo "Cursor CLI installed at $HOME/.cursor/bin"
           else
             echo "Cursor CLI was not installed (exit ${status}). Cursor personas will fall back to Groq, then the no-key writer."
           fi
@@ -91,6 +95,7 @@ jobs:
           PYTHONPATH=src python3 -m harness wake "${args[@]}"
 
       - name: Publish provenance
+        if: always()
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -101,5 +106,29 @@ jobs:
             exit 0
           fi
           git commit -m "provenance: append wake log"
+          resolve_provenance() {
+            PYTHONPATH=src python3 -c "from harness.provenance import repair_rebase_jsonl; repair_rebase_jsonl('data/attempts.jsonl')"
+            git add data/attempts.jsonl data/attempts.csv
+          }
+          set +e
           git pull --rebase origin "${GITHUB_REF_NAME}"
+          status=$?
+          set -e
+          tries=0
+          while [ "$status" -ne 0 ]; do
+            tries=$((tries + 1))
+            if [ "$tries" -gt 5 ]; then
+              echo "provenance rebase failed"
+              exit 1
+            fi
+            if [ ! -d .git/rebase-merge ] && [ ! -d .git/rebase-apply ]; then
+              echo "provenance pull failed before a rebase"
+              exit "$status"
+            fi
+            resolve_provenance
+            set +e
+            GIT_EDITOR=true git rebase --continue
+            status=$?
+            set -e
+          done
           git push

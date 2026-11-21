@@ -96,12 +96,21 @@ def _failed(provider: str, model: str, started: float, exc: Exception) -> Comple
     )
 
 
+# Cloudflare in front of Groq answers 403 error 1010 to Python's default
+# urllib user agent. A named agent reaches the API and gets a normal status.
+USER_AGENT = "agents-unite-agents/0.1.0"
+
+
+def _secret(name: str) -> str:
+    return os.environ.get(name, "").strip()
+
+
 def _post_json(url: str, payload: dict, headers: dict[str, str], timeout: float = 60.0) -> tuple[dict, float]:
     started = time.perf_counter()
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", **headers},
+        headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **headers},
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -126,11 +135,12 @@ class _OpenAIChat:
         return {}
 
     def available(self) -> bool:
-        return bool(os.environ.get(self.env_key))
+        return bool(_secret(self.env_key))
 
     def complete(self, system: str, user: str) -> Completion:
         model = self.model_name()
         started = time.perf_counter()
+        token = _secret(self.env_key)
         payload = {
             "model": model,
             "temperature": 0,
@@ -144,7 +154,7 @@ class _OpenAIChat:
             body, latency = _post_json(
                 self.url,
                 payload,
-                {"Authorization": f"Bearer {os.environ[self.env_key]}"},
+                {"Authorization": f"Bearer {token}"},
             )
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError) as exc:
             return _failed(self.name, model, started, exc)
@@ -389,8 +399,13 @@ class OllamaProvider:
         )
 
 
-def cursor_binary() -> str | None:
-    """Resolve cursor-agent, then the newer `agent` binary."""
+def cursor_binary(home: Path | None = None) -> str | None:
+    """Resolve cursor-agent, then the newer `agent` binary.
+
+    The current installer links both names into ``~/.local/bin``. Older
+    installs used ``~/.cursor/bin``. GitHub Actions does not put
+    ``~/.local/bin`` on PATH unless the workflow adds it.
+    """
     override = os.environ.get("CURSOR_AGENT_BIN", "").strip()
     if override:
         path = Path(override)
@@ -401,18 +416,23 @@ def cursor_binary() -> str | None:
         found = shutil.which(name)
         if found:
             return found
-    home_bin = Path.home() / ".cursor" / "bin"
-    for name in ("cursor-agent", "agent"):
-        candidate = home_bin / name
+    root = home or Path.home()
+    for candidate in (
+        root / ".local" / "bin" / "cursor-agent",
+        root / ".local" / "bin" / "agent",
+        root / ".cursor" / "bin" / "cursor-agent",
+        root / ".cursor" / "bin" / "agent",
+    ):
         if candidate.is_file():
             return str(candidate)
     return None
 
 
 def _redact(text: str) -> str:
-    secret = os.environ.get("CURSOR_API_KEY") or ""
-    if secret:
-        text = text.replace(secret, "[redacted]")
+    raw = os.environ.get("CURSOR_API_KEY") or ""
+    for value in {raw, raw.strip()}:
+        if value:
+            text = text.replace(value, "[redacted]")
     return text
 
 
@@ -432,13 +452,13 @@ class CursorProvider:
         return _env_first("CURSOR_MODEL", "HARNESS_CURSOR_MODEL", default="")
 
     def available(self) -> bool:
-        return bool(os.environ.get("CURSOR_API_KEY"))
+        return bool(_secret("CURSOR_API_KEY"))
 
     def complete(self, system: str, user: str) -> Completion:
         model = self.model_name()
         logged = model or "default"
         started = time.perf_counter()
-        if not os.environ.get("CURSOR_API_KEY"):
+        if not _secret("CURSOR_API_KEY"):
             return Completion(
                 provider=self.name,
                 model=logged,
@@ -481,8 +501,11 @@ class CursorProvider:
         command.append(prompt)
         timeout = _cursor_timeout()
         try:
+            env = os.environ.copy()
+            if env.get("CURSOR_API_KEY"):
+                env["CURSOR_API_KEY"] = env["CURSOR_API_KEY"].strip()
             if self.runner is not None:
-                result = self.runner(command, os.environ.copy(), timeout)
+                result = self.runner(command, env, timeout)
             else:
                 result = subprocess.run(
                     command,
@@ -490,7 +513,7 @@ class CursorProvider:
                     capture_output=True,
                     text=True,
                     timeout=timeout,
-                    env=os.environ.copy(),
+                    env=env,
                 )
         except (OSError, subprocess.TimeoutExpired) as exc:
             failed = _failed(self.name, logged, started, exc)

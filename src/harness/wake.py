@@ -7,7 +7,6 @@ import hashlib
 import json
 import os
 import sys
-import tempfile
 import traceback
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -16,7 +15,7 @@ from pathlib import Path
 from harness.ledger import validate_report_dir, validate_scope
 from harness.personas import Persona, Slot, load_personas
 from harness.provenance import Provenance, now_stamp
-from harness.providers import CursorProvider, GroqProvider, RuleProvider, choose_completion, select_provider
+from harness.providers import CursorProvider, GroqProvider, RuleProvider, choose_completion, cursor_binary, select_provider
 from harness.report import DISCLOSURE, model_reply_reason, render_report, write_pair
 from harness.research import Dossier, gather, has_sources
 from harness.schedule import due_slots, session_date
@@ -24,6 +23,7 @@ from harness.submit import (
     SubmitResult,
     clone_ledger,
     commit_and_push,
+    fresh_submit_dir,
     maybe_merge_green,
     open_pr,
     request_auto_merge,
@@ -230,16 +230,60 @@ def _model_name(provider) -> str:
     return str(getattr(provider, "model", provider.name))
 
 
+def slot_status(record: dict) -> str:
+    """A slot passes only when the report is valid and, live, a PR exists.
+
+    Local validation without a pull request is a failed submit. A dry run
+    passes when validation passes. A missing ledger token stays a soft miss
+    for the process exit code, but the row is still ``fail``.
+    """
+    if record.get("dry_run") in {True, "true", "True", "1", 1}:
+        return "pass" if record.get("local_validation") == "pass" else "fail"
+    if record.get("local_validation") != "pass":
+        return "fail"
+    if record.get("pr_url"):
+        return "pass"
+    if record.get("merge_outcome") in {"merged", "auto_merge_requested", "checks_pending"}:
+        return "pass"
+    return "fail"
+
+
+def split_results(results: list[dict]) -> tuple[list[dict], list[dict]]:
+    failed = [row for row in results if row.get("slot_status") == "fail"]
+    passed = [row for row in results if row not in failed]
+    return passed, failed
+
+
+def exit_code(config: WakeConfig, results: list[dict]) -> int:
+    _passed, failed = split_results(results)
+    if not failed:
+        return 0
+    if config.dry_run:
+        return 1
+    if all(row.get("merge_outcome") == "missing_token" for row in failed):
+        return 0
+    return 1
+
+
 def _finish(provenance: Provenance, record: dict, *, dry_run: bool) -> dict:
     record["dry_run"] = dry_run
     record["model"] = record.get("model") or ""
+    record["slot_status"] = slot_status(record)
     provenance.append(record)
     label = record["local_validation"]
     reason = record.get("failure_reason") or ""
+    note = " ".join(str(record.get("fallback_note") or "").split())
+    if len(note) > 180:
+        note = note[:177] + "..."
+    assigned = record.get("assigned_provider") or ""
+    provider = record.get("provider") or "-"
+    assigned_bit = f"assigned={assigned} " if assigned and assigned != provider else ""
+    fallback_bit = f" fallback={note}" if note else ""
     print(
         f"{record['persona_id']} {record['slot']} {record.get('ticker') or '-'} "
-        f"provider={record.get('provider') or '-'} "
-        f"validation={label} merge={record.get('merge_outcome') or '-'} {reason}".rstrip()
+        f"{assigned_bit}provider={provider} model={record.get('model') or '-'} "
+        f"validation={label} slot={record['slot_status']} "
+        f"merge={record.get('merge_outcome') or '-'}{fallback_bit} {reason}".rstrip()
     )
     return record
 
@@ -400,7 +444,7 @@ def run_slot(
 
 
 def _submit(config: WakeConfig, persona: Persona, rendered: dict) -> SubmitResult:
-    scratch = Path(tempfile.mkdtemp(prefix="au-ledger-"))
+    scratch = fresh_submit_dir()
     clone_ledger(scratch, config.ledger_repo, config.ledger_ref, config.token)
     target = scratch / rendered["rel_dir"]
     target.mkdir(parents=True, exist_ok=True)
@@ -446,10 +490,19 @@ def _slots_for(persona: Persona, config: WakeConfig, session: str) -> list[tuple
 
 
 def _skip(provenance: Provenance, persona_id: str, session: str, slot_id: str, force: bool) -> bool:
+    """Skip a slot only after a live pull request exists.
+
+    A validation pass that never submitted is retried. A dry-run row does
+    not block the later live wake.
+    """
     if force:
         return False
     row = provenance.latest().get(f"{persona_id}|{session}|{slot_id}")
-    return bool(row and row.get("local_validation") == "pass")
+    if not row or row.get("dry_run") in {True, "true", "True", "1", 1}:
+        return False
+    if row.get("pr_url"):
+        return True
+    return row.get("merge_outcome") in {"merged", "auto_merge_requested", "checks_pending"}
 
 
 def backfill(config: WakeConfig, provenance: Provenance) -> None:
@@ -509,6 +562,9 @@ def run_wake(config: WakeConfig, *, gather_fn=gather) -> list[dict]:
         print(MISSING_TOKEN)
     backfill(config, provenance)
     requested = config.provider_name
+    groq_key = "set" if os.environ.get("GROQ_API_KEY", "").strip() else "missing"
+    cursor_key = "set" if os.environ.get("CURSOR_API_KEY", "").strip() else "missing"
+    print(f"providers: requested={requested} groq_key={groq_key} cursor_key={cursor_key} cursor_bin={cursor_binary() or 'missing'}")
     if requested == "groq" and select_provider("groq").name == "rule":
         print("GROQ_API_KEY is not set. Reports will use the no-key writer on fetched sources.")
     session = (config.session or session_date(config.now)).isoformat()
@@ -558,6 +614,7 @@ def run_wake(config: WakeConfig, *, gather_fn=gather) -> list[dict]:
                     "merge_outcome": "not_submitted",
                     "ci_outcome": "not_run",
                     "dry_run": config.dry_run,
+                    "slot_status": "fail",
                     "disclosure": DISCLOSURE,
                         "assigned_provider": assigned_provider_name(persona, requested),
                         "provider": assigned_provider_name(persona, requested),
@@ -653,11 +710,9 @@ def main(argv: list[str] | None = None) -> int:
     if not results:
         print("No personas due in this window.")
         return 0
-    failed = [row for row in results if row.get("local_validation") != "pass"]
-    print(f"Wake finished: {len(results) - len(failed)} passed, {len(failed)} failed.")
-    if config.dry_run and failed:
-        return 1
-    return 0
+    passed, failed = split_results(results)
+    print(f"Wake finished: {len(passed)} passed, {len(failed)} failed.")
+    return exit_code(config, results)
 
 
 if __name__ == "__main__":

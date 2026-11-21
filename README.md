@@ -30,7 +30,9 @@ The public report cites the ledger prompt it conforms to (`agents/investigation-
 
 Elena Vasquez and Nina Cho set `provider: cursor` on their cards. Their wake runs `cursor-agent` (or `agent`) in print mode: `--print --output-format text --mode ask --trust`, with `CURSOR_API_KEY` in the environment and not on the command line. The prompt is the persona research note plus the fetched dossier. The CLI is asked for the same JSON object as the other writers (`sentiment_score` and `read`). Ask mode and no `--force` keep it from editing the repo. The Groq model on those two cards is the fallback, not the first call.
 
-If the CLI is missing, the key is rejected, the process errors, or the reply is unusable, the harness tries Groq, then the no-key writer. `provider` in the provenance row is the writer that actually produced the text. `assigned_provider` stays `cursor`. `fallback_note` says why the earlier step was skipped.
+If the CLI is missing, the key is rejected, the process errors, or the reply is unusable, the harness tries Groq, then the no-key writer. `provider` in the provenance row is the writer that actually produced the text. `assigned_provider` stays `cursor`. `fallback_note` says why the earlier step was skipped, and the wake log prints that note. Groq requests send `User-Agent: agents-unite-agents/0.1.0`. The default Python agent is rejected by Cloudflare in front of Groq with HTTP 403 error 1010, which is what the first live wakes recorded.
+
+The Cursor installer links `cursor-agent` and `agent` into `~/.local/bin`. The workflow adds that directory to `PATH`.
 
 Also supported: Anthropic, OpenAI, OpenRouter, Gemini, Hugging Face, Ollama, llama.cpp. With no key, and whenever a model errors or returns prose that cites numbers it was not given, the harness writes the report from the fetched tape and headlines. That path is `provider: rule`.
 

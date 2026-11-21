@@ -1,17 +1,23 @@
+import io
 import os
 import stat
 import subprocess
 import tempfile
 import unittest
+import urllib.error
+import urllib.request
+from email.message import Message
 from pathlib import Path
 
 import support  # noqa: F401
 
 from harness.providers import (
     GROQ_FREE_MODELS,
+    USER_AGENT,
     Completion,
     CursorProvider,
     choose_completion,
+    cursor_binary,
     select_provider,
 )
 
@@ -76,6 +82,40 @@ class ProviderTests(unittest.TestCase):
     def test_unknown_provider(self):
         with self.assertRaises(ValueError):
             select_provider("not-a-provider")
+
+    def test_groq_request_names_its_user_agent(self):
+        os.environ["GROQ_API_KEY"] = "  test-groq  "
+        seen = {}
+
+        def fake_open(request, timeout=60):
+            seen["ua"] = request.get_header("User-agent")
+            seen["auth"] = request.get_header("Authorization")
+            raise urllib.error.HTTPError(
+                request.full_url,
+                401,
+                "no",
+                Message(),
+                io.BytesIO(b'{"error":"invalid"}'),
+            )
+
+        original = urllib.request.urlopen
+        urllib.request.urlopen = fake_open
+        try:
+            result = select_provider("groq").complete("system", "user")
+        finally:
+            urllib.request.urlopen = original
+        self.assertEqual(seen["ua"], USER_AGENT)
+        self.assertEqual(seen["auth"], "Bearer test-groq")
+        self.assertIn("401", result.error)
+        self.assertTrue(result.fell_back)
+
+    def test_cursor_binary_finds_local_bin(self):
+        with tempfile.TemporaryDirectory() as raw:
+            home = Path(raw)
+            binary = home / ".local" / "bin" / "cursor-agent"
+            binary.parent.mkdir(parents=True)
+            binary.write_text("#!/bin/sh\n", encoding="utf-8")
+            self.assertEqual(cursor_binary(home), str(binary))
 
     def test_auto_does_not_select_cursor(self):
         os.environ["CURSOR_API_KEY"] = "test-cursor"
