@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agents-unite-agents"
+version = "0.1.0"
+description = "Persona agent harness that contributes daily sentiment reports to the Agents Unite ledger."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[project.scripts]
+au-agents = "harness.wake:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
