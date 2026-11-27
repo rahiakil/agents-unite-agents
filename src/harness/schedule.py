@@ -53,6 +53,73 @@ def is_weekday(day: date) -> bool:
     return day.weekday() < 5
 
 
+def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
+    """The n-th ``weekday`` (Monday is 0) of a month. ``n=-1`` is the last one."""
+    if n > 0:
+        first = date(year, month, 1)
+        return first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * (n - 1))
+    following = date(year + (month // 12), month % 12 + 1, 1)
+    last = following - timedelta(days=1)
+    return last - timedelta(days=(last.weekday() - weekday) % 7)
+
+
+def _easter(year: int) -> date:
+    """Gregorian Easter Sunday (anonymous Gregorian algorithm)."""
+    a = year % 19
+    b, c = divmod(year, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    month, day = divmod(h + l - 7 * m + 114, 31)
+    return date(year, month, day + 1)
+
+
+def _observed(day: date) -> date:
+    """NYSE rule: Saturday holidays close Friday, Sunday holidays close Monday."""
+    if day.weekday() == 5:
+        return day - timedelta(days=1)
+    if day.weekday() == 6:
+        return day + timedelta(days=1)
+    return day
+
+
+def market_holidays(year: int) -> set[date]:
+    """Full-day NYSE closures for ``year``.
+
+    Early closes (the day after Thanksgiving, Christmas Eve) are still
+    trading days and are not listed. New Year's Day on a Saturday is not
+    moved back into the prior year, which matches NYSE practice.
+    """
+    days = {
+        _nth_weekday(year, 1, 0, 3),  # Martin Luther King Jr. Day
+        _nth_weekday(year, 2, 0, 3),  # Washington's Birthday
+        _easter(year) - timedelta(days=2),  # Good Friday
+        _nth_weekday(year, 5, 0, -1),  # Memorial Day
+        _observed(date(year, 6, 19)),  # Juneteenth
+        _observed(date(year, 7, 4)),  # Independence Day
+        _nth_weekday(year, 9, 0, 1),  # Labor Day
+        _nth_weekday(year, 11, 3, 4),  # Thanksgiving
+        _observed(date(year, 12, 25)),  # Christmas
+    }
+    new_year = date(year, 1, 1)
+    if new_year.weekday() != 5:
+        days.add(_observed(new_year))
+    return days
+
+
+def is_market_holiday(day: date) -> bool:
+    return day in market_holidays(day.year)
+
+
+def is_trading_day(day: date) -> bool:
+    """A weekday when US equity markets are open for at least part of the day."""
+    return is_weekday(day) and not is_market_holiday(day)
+
+
 def due_slots(
     persona: Persona,
     now: datetime,
@@ -68,7 +135,7 @@ def due_slots(
     """
     moment = now.astimezone(UTC)
     day = session or session_date(moment)
-    if not is_weekday(day):
+    if not is_trading_day(day):
         return []
     start = moment - timedelta(minutes=lookback_minutes)
     found: list[tuple[Slot, datetime]] = []
@@ -80,9 +147,9 @@ def due_slots(
 
 
 def previous_trading_day(day: date) -> date:
-    """The weekday before ``day``. Monday goes back to Friday."""
+    """The trading day before ``day``. Weekends and NYSE holidays are skipped."""
     cursor = day - timedelta(days=1)
-    while not is_weekday(cursor):
+    while not is_trading_day(cursor):
         cursor -= timedelta(days=1)
     return cursor
 
@@ -90,10 +157,10 @@ def previous_trading_day(day: date) -> date:
 def passed_slots(persona: Persona, now: datetime, session: date) -> list[tuple[Slot, datetime]]:
     """Slots whose jittered New York time is at or before ``now``.
 
-    A slot still in the future is omitted. Weekends have no session.
+    A slot still in the future is omitted. Weekends and market holidays have no session.
     """
     moment = now.astimezone(UTC)
-    if not is_weekday(session):
+    if not is_trading_day(session):
         return []
     found: list[tuple[Slot, datetime]] = []
     for slot in persona.slots:
@@ -113,6 +180,6 @@ def ledger_accepts_report_date(session: date, *, today: date) -> bool:
     session and anything older than the previous trading day. That one missed
     weekday is the short catch-up, and it stays inside what the ledger accepts.
     """
-    if not is_weekday(session) or session > today:
+    if not is_trading_day(session) or session > today:
         return False
     return session >= previous_trading_day(today)

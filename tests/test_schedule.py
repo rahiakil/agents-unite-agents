@@ -6,6 +6,9 @@ import support  # noqa: F401
 from harness.personas import load_personas
 from harness.schedule import (
     cron_times_utc,
+    is_market_holiday,
+    is_trading_day,
+    market_holidays,
     due_slots,
     jitter_minutes,
     ledger_accepts_report_date,
@@ -100,3 +103,38 @@ class ScheduleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_nyse_holidays(self):
+        expected_2026 = {
+            date(2026, 1, 1),
+            date(2026, 1, 19),
+            date(2026, 2, 16),
+            date(2026, 4, 3),
+            date(2026, 5, 25),
+            date(2026, 6, 19),
+            date(2026, 7, 3),
+            date(2026, 9, 7),
+            date(2026, 11, 26),
+            date(2026, 12, 25),
+        }
+        self.assertEqual(market_holidays(2026), expected_2026)
+        self.assertIn(date(2027, 3, 26), market_holidays(2027))  # Good Friday 2027
+        self.assertIn(date(2027, 12, 24), market_holidays(2027))  # Christmas on Saturday
+        self.assertNotIn(date(2021, 12, 31), market_holidays(2021))  # New Year on Saturday
+        self.assertTrue(is_market_holiday(date(2026, 11, 26)))
+        self.assertFalse(is_trading_day(date(2026, 11, 26)))
+        self.assertTrue(is_trading_day(date(2026, 11, 27)))  # early close is still a session
+        self.assertFalse(is_trading_day(date(2026, 11, 28)))
+
+    def test_holiday_has_no_slots_and_is_skipped_by_catch_up(self):
+        thanksgiving = date(2026, 11, 26)
+        friday = date(2026, 11, 27)
+        self.assertEqual(previous_trading_day(friday), date(2026, 11, 25))
+        self.assertEqual(previous_trading_day(date(2026, 11, 30)), friday)
+        self.assertFalse(ledger_accepts_report_date(thanksgiving, today=thanksgiving))
+        self.assertFalse(ledger_accepts_report_date(thanksgiving, today=friday))
+        self.assertTrue(ledger_accepts_report_date(date(2026, 11, 25), today=friday))
+        late = datetime(2026, 11, 27, 3, 0, tzinfo=timezone.utc)
+        for persona in load_personas():
+            self.assertEqual(passed_slots(persona, late, thanksgiving), [])
+            self.assertEqual(due_slots(persona, late, session=thanksgiving, lookback_minutes=24 * 60), [])
