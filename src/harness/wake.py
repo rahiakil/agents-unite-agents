@@ -19,7 +19,7 @@ from harness.providers import CursorProvider, GroqProvider, RuleProvider, choose
 from harness.report import DISCLOSURE, model_reply_reason, render_report, write_pair
 from harness.research import Dossier, gather, has_sources
 from harness.schedule import (
-    is_weekday,
+    is_trading_day,
     ledger_accepts_report_date,
     passed_slots,
     previous_trading_day,
@@ -552,9 +552,9 @@ def _sessions_for(config: WakeConfig, provenance: Provenance) -> list[date]:
         print(f"session {config.session.isoformat()} is not a trading day this wake can file")
         return []
     if config.all_personas or config.force:
-        return [today] if is_weekday(today) else []
+        return [today] if is_trading_day(today) else []
     sessions: list[date] = []
-    if is_weekday(today):
+    if is_trading_day(today):
         sessions.append(today)
     previous = previous_trading_day(today)
     if (

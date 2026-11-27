@@ -307,6 +307,37 @@ class ReportTests(unittest.TestCase):
             self.assertEqual(results, [])
             self.assertEqual(log.jsonl_path.read_text(encoding="utf-8"), before)
 
+    def test_thanksgiving_is_never_filed(self):
+        # Thanksgiving evening: no session. Friday morning catch-up skips
+        # Thanksgiving and looks at Wednesday instead.
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            log = Provenance(tmp / "attempts.jsonl")
+            base = replace(
+                _config(tmp, log.jsonl_path),
+                all_personas=False,
+                force=False,
+                dry_run=True,
+                backfill=False,
+            )
+            evening = replace(base, now=datetime(2026, 11, 26, 22, 0, tzinfo=timezone.utc))
+            # Only the missed Wednesday may be caught up on Thanksgiving itself.
+            self.assertEqual(_sessions_for(evening, log), [date(2026, 11, 25)])
+            evening_rows = run_wake(evening, gather_fn=fixture_gather)
+            self.assertTrue(all(row["session_date"] == "2026-11-25" for row in evening_rows))
+            log = Provenance(tmp / "fresh.jsonl")
+            base = replace(base, provenance_path=log.jsonl_path)
+            evening = replace(evening, provenance_path=log.jsonl_path)
+            forced = replace(evening, all_personas=True, force=True)
+            self.assertEqual(_sessions_for(forced, log), [])
+            asked = replace(evening, session=date(2026, 11, 26))
+            self.assertEqual(_sessions_for(asked, log), [])
+            friday = replace(base, now=datetime(2026, 11, 27, 12, 0, tzinfo=timezone.utc))
+            self.assertEqual(_sessions_for(friday, log), [date(2026, 11, 27), date(2026, 11, 25)])
+            results = run_wake(friday, gather_fn=fixture_gather)
+            self.assertTrue(results)
+            self.assertTrue(all(row["session_date"] != "2026-11-26" for row in results))
+
     def test_wake_refuses_a_session_older_than_the_ledger_window(self):
         moment = datetime(2026, 11, 23, 18, 0, tzinfo=timezone.utc)
         with tempfile.TemporaryDirectory() as raw:
