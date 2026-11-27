@@ -1,6 +1,6 @@
 # Provenance
 
-`attempts.jsonl` is append-only. A later wake adds a `status` line for CI and merge. It does not rewrite earlier lines.
+`attempts.jsonl` is append-only. A wake files a persona slot only when this log has no attempt for that persona, session date, and slot, so a repeated wake does not submit twice. A dry-run row does not block the later live wake. A later wake adds a `status` line for CI and merge. It does not rewrite earlier lines.
 
 `attempts.csv` is rebuilt from the log after every append. It is the latest row per attempt.
 

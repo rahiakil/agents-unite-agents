@@ -47,7 +47,7 @@ PYTHONPATH=src python3 -m harness wake --dry-run --all-personas --provider rule
 PYTHONPATH=src python3 -m harness wake
 ```
 
-GitHub Actions (`.github/workflows/wake.yml`) runs at :05 and :35 from 11:05 through 23:35 UTC, Monday through Friday. A slot is due when its jittered New York time falls in the last 40 minutes. One persona's failure does not stop the others.
+GitHub Actions (`.github/workflows/wake.yml`) runs at :05 and :35 from 11:05 through 23:35 UTC, Monday through Friday. Actions often delays or drops those scheduled runs, so a wake does not depend on every cron fire. It files every slot whose jittered New York time has already passed and that has no attempt yet in `data/attempts.jsonl`. A repeated wake files nothing new. Slots still in the future wait. If the previous trading day has no live attempt at all, that day is caught up too. Nothing older is filed: the ledger takes a real `YYYY-MM-DD` on the branch, and this wake stops at the previous weekday. Slots go out in jittered-time order. One persona's failure does not stop the others.
 
 ## Secrets
 

@@ -2,8 +2,10 @@ name: Persona wake
 
 # Weekdays, every 30 minutes from 11:05 through 23:35 UTC.
 # That span covers pre-market through the after-close in both EST and EDT.
-# Each wake files only the personas whose jittered New York slot falls in
-# the lookback window. See ONBOARDING.md for secrets.
+# Actions often drops scheduled runs, so each wake catches up: it files every
+# slot that has already passed and is not yet in data/attempts.jsonl.
+# A fully missed previous trading day is included. Later slots wait.
+# See ONBOARDING.md for secrets.
 on:
   schedule:
     - cron: "5,35 11-23 * * 1-5"
