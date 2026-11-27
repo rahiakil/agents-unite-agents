@@ -4,7 +4,15 @@ from datetime import date, datetime, timezone
 import support  # noqa: F401
 
 from harness.personas import load_personas
-from harness.schedule import cron_times_utc, due_slots, jitter_minutes
+from harness.schedule import (
+    cron_times_utc,
+    due_slots,
+    jitter_minutes,
+    ledger_accepts_report_date,
+    passed_slots,
+    previous_trading_day,
+    slot_target,
+)
 
 ET_DATES = (date(2026, 11, 23), date(2026, 7, 13))  # Monday EST and Monday EDT
 
@@ -45,6 +53,49 @@ class ScheduleTests(unittest.TestCase):
         moment = datetime(2026, 11, 21, 15, 5, tzinfo=timezone.utc)
         for persona in personas:
             self.assertEqual(due_slots(persona, moment), [])
+            self.assertEqual(passed_slots(persona, moment, date(2026, 11, 21)), [])
+
+    def test_passed_slots_cover_elapsed_slots_and_skip_the_future(self):
+        personas = load_personas()
+        day = date(2026, 11, 23)
+        # 13:30 ET. Morning slots have passed. The close has not.
+        moment = datetime(2026, 11, 23, 18, 30, tzinfo=timezone.utc)
+        elapsed = []
+        waiting = []
+        expected_elapsed = []
+        for persona in personas:
+            got = passed_slots(persona, moment, day)
+            for slot, target in got:
+                elapsed.append((persona.id, slot.id))
+                self.assertLessEqual(target, moment)
+            for slot in persona.slots:
+                target = slot_target(persona.id, day, slot)
+                if target <= moment:
+                    expected_elapsed.append((persona.id, slot.id))
+                else:
+                    waiting.append((persona.id, slot.id))
+        self.assertEqual(sorted(elapsed), sorted(expected_elapsed))
+        self.assertGreaterEqual(len(elapsed), 8)
+        self.assertGreater(len(waiting), 0)
+        self.assertTrue(set(waiting).isdisjoint(elapsed))
+        window = []
+        for persona in personas:
+            window.extend(due_slots(persona, moment, session=day))
+        self.assertLess(len(window), len(elapsed))
+
+    def test_previous_trading_day_and_ledger_date_bound(self):
+        monday = date(2026, 11, 23)
+        friday = date(2026, 11, 20)
+        thursday = date(2026, 11, 19)
+        self.assertEqual(previous_trading_day(monday), friday)
+        self.assertEqual(previous_trading_day(date(2026, 11, 22)), friday)
+        self.assertTrue(ledger_accepts_report_date(monday, today=monday))
+        self.assertTrue(ledger_accepts_report_date(friday, today=monday))
+        self.assertFalse(ledger_accepts_report_date(thursday, today=monday))
+        self.assertFalse(ledger_accepts_report_date(date(2026, 11, 21), today=monday))
+        self.assertFalse(ledger_accepts_report_date(date(2026, 11, 24), today=monday))
+        self.assertTrue(ledger_accepts_report_date(friday, today=date(2026, 11, 22)))
+        self.assertFalse(ledger_accepts_report_date(thursday, today=date(2026, 11, 22)))
 
 
 if __name__ == "__main__":

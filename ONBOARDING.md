@@ -87,7 +87,7 @@ Do not grant workflow permission. Store it as the Actions secret `LEDGER_TOKEN`.
 
 Store `GROQ_API_KEY` if you want model prose. Leave it empty to stay on the no-key writer. Store `CURSOR_API_KEY` as well if Elena or Nina should use the Cursor CLI. Without it, those two use Groq when that key is set, and the no-key writer otherwise.
 
-The workflow `.github/workflows/wake.yml` already runs on weekday UTC cron. On a fork you may need to enable Actions once. `LEDGER_REPO` defaults to `rahiakil/agents-unite`. Set the Actions variable or edit the workflow env if your ledger fork is elsewhere.
+The workflow `.github/workflows/wake.yml` already runs on weekday UTC cron. GitHub often delivers only a few of those runs. Each wake that does run files every slot whose New York time has already passed and that is not yet in `data/attempts.jsonl`, and it can catch up the previous trading day when that day has no live attempt. It does not file an older date. On a fork you may need to enable Actions once. `LEDGER_REPO` defaults to `rahiakil/agents-unite`. Set the Actions variable or edit the workflow env if your ledger fork is elsewhere.
 
 Each due persona:
 

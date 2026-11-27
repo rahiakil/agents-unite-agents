@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import support
@@ -10,9 +10,19 @@ from support import LEDGER, fixture_gather
 from harness.ledger import MAIN_SCORE_RE
 from harness.personas import load_personas
 from harness.provenance import Provenance
+from harness.schedule import slot_target
 from harness.textutil import EM_DASH
 from harness.universe import load_universe
-from harness.wake import WakeConfig, _candidates, _skip, backfill, exit_code, run_wake, slot_status
+from harness.wake import (
+    WakeConfig,
+    _candidates,
+    _sessions_for,
+    _skip,
+    backfill,
+    exit_code,
+    run_wake,
+    slot_status,
+)
 
 
 def _config(tmp: Path, provenance: Path) -> WakeConfig:
@@ -112,7 +122,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(exit_code(config, results), 1)
         self.assertEqual(slot_status(row), "fail")
 
-    def test_skip_requires_a_pull_request(self):
+    def test_recorded_attempt_is_not_filed_again(self):
         with tempfile.TemporaryDirectory() as raw:
             log = Provenance(Path(raw) / "attempts.jsonl")
             base = {
@@ -125,7 +135,8 @@ class ReportTests(unittest.TestCase):
                 "merge_outcome": "not_submitted",
             }
             log.append(base)
-            self.assertFalse(_skip(log, "au-mira-retail", "2026-11-21", "premarket", False))
+            self.assertTrue(_skip(log, "au-mira-retail", "2026-11-21", "premarket", False))
+            self.assertFalse(_skip(log, "au-mira-retail", "2026-11-21", "premarket", True))
             dry = dict(base)
             dry["attempt_id"] = "au-jordan-retail|2026-11-21|open"
             dry["persona_id"] = "au-jordan-retail"
@@ -133,6 +144,7 @@ class ReportTests(unittest.TestCase):
             dry["dry_run"] = True
             log.append(dry)
             self.assertFalse(_skip(log, "au-jordan-retail", "2026-11-21", "open", False))
+            self.assertTrue(_skip(log, "au-jordan-retail", "2026-11-21", "open", False, dry_run=True))
             sent = dict(base)
             sent["pr_url"] = "https://github.com/rahiakil/agents-unite/pull/9"
             sent["merge_outcome"] = "auto_merge_requested"
@@ -180,6 +192,138 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(latest["ci_outcome"], "pending")
         self.assertEqual(latest["branch_update_sha"], "4a93befec1941e14cc2134b20f5a34f937f6e2ad")
         self.assertIn("behind", latest["failure_reason"])
+
+    def test_wake_after_missed_slots_files_each_due_slot_once(self):
+        # 15:00 UTC is 10:00 ET. Four morning slots have passed. Later slots,
+        # and every persona whose first slot is still ahead, wait.
+        moment = datetime(2026, 11, 23, 15, 0, tzinfo=timezone.utc)
+        day = date(2026, 11, 23)
+        expected = []
+        future = []
+        for persona in load_personas():
+            for slot in persona.slots:
+                target = slot_target(persona.id, day, slot)
+                attempt_id = f"{persona.id}|{day.isoformat()}|{slot.id}"
+                if target <= moment:
+                    expected.append((target, persona.id, slot.id, attempt_id))
+                else:
+                    future.append(attempt_id)
+        expected.sort(key=lambda item: (item[0], item[1], item[2]))
+        self.assertGreaterEqual(len(expected), 4)
+        self.assertGreater(len(future), 0)
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            log = Provenance(tmp / "attempts.jsonl")
+            log.append(
+                {
+                    "record_type": "attempt",
+                    "attempt_id": "au-leo-quant|2026-11-20|midday",
+                    "persona_id": "au-leo-quant",
+                    "session_date": "2026-11-20",
+                    "slot": "midday",
+                    "dry_run": False,
+                    "local_validation": "pass",
+                    "pr_url": "https://github.com/rahiakil/agents-unite/pull/1",
+                    "merge_outcome": "auto_merge_requested",
+                }
+            )
+            config = replace(
+                _config(tmp, log.jsonl_path),
+                now=moment,
+                all_personas=False,
+                force=False,
+                dry_run=True,
+                backfill=False,
+            )
+            first = run_wake(config, gather_fn=fixture_gather)
+            ids = [row["attempt_id"] for row in first]
+            self.assertEqual(ids, [item[3] for item in expected])
+            self.assertEqual(len(ids), len(set(ids)))
+            for row in first:
+                self.assertEqual(row["local_validation"], "pass", msg=row.get("failure_reason"))
+                self.assertEqual(row["slot_status"], "pass")
+            self.assertTrue(set(ids).isdisjoint(future))
+            self.assertTrue(all("2026-11-20" not in row["attempt_id"] for row in first))
+            recorded = log.jsonl_path.read_text(encoding="utf-8")
+            second = run_wake(config, gather_fn=fixture_gather)
+            self.assertEqual(second, [])
+            self.assertEqual(log.jsonl_path.read_text(encoding="utf-8"), recorded)
+
+    def test_previous_trading_day_catchup_when_fully_missed(self):
+        # Monday 07:00 ET. No Monday slot has started. Friday was not filed.
+        moment = datetime(2026, 11, 23, 12, 0, tzinfo=timezone.utc)
+        friday = date(2026, 11, 20)
+        persona = next(item for item in load_personas() if item.id == "au-mira-retail")
+        expected = []
+        for slot in persona.slots:
+            target = slot_target(persona.id, friday, slot)
+            self.assertLessEqual(target, moment)
+            expected.append((target, slot.id, f"{persona.id}|{friday.isoformat()}|{slot.id}"))
+        expected.sort(key=lambda item: (item[0], item[1]))
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            config = replace(
+                _config(tmp, tmp / "attempts.jsonl"),
+                now=moment,
+                all_personas=False,
+                force=False,
+                dry_run=True,
+                backfill=False,
+                persona_id=persona.id,
+            )
+            results = run_wake(config, gather_fn=fixture_gather)
+            self.assertEqual([row["attempt_id"] for row in results], [item[2] for item in expected])
+            for row in results:
+                self.assertEqual(row["session_date"], "2026-11-20")
+                self.assertEqual(row["local_validation"], "pass", msg=row.get("failure_reason"))
+            self.assertTrue(all(row["session_date"] != "2026-11-23" for row in results))
+
+    def test_previous_trading_day_is_left_alone_when_any_attempt_exists(self):
+        moment = datetime(2026, 11, 23, 12, 0, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            log = Provenance(tmp / "attempts.jsonl")
+            log.append(
+                {
+                    "record_type": "attempt",
+                    "attempt_id": "au-leo-quant|2026-11-20|midday",
+                    "persona_id": "au-leo-quant",
+                    "session_date": "2026-11-20",
+                    "slot": "midday",
+                    "dry_run": False,
+                }
+            )
+            before = log.jsonl_path.read_text(encoding="utf-8")
+            config = replace(
+                _config(tmp, log.jsonl_path),
+                now=moment,
+                all_personas=False,
+                force=False,
+                dry_run=True,
+                backfill=False,
+                persona_id="au-mira-retail",
+            )
+            results = run_wake(config, gather_fn=fixture_gather)
+            self.assertEqual(results, [])
+            self.assertEqual(log.jsonl_path.read_text(encoding="utf-8"), before)
+
+    def test_wake_refuses_a_session_older_than_the_ledger_window(self):
+        moment = datetime(2026, 11, 23, 18, 0, tzinfo=timezone.utc)
+        with tempfile.TemporaryDirectory() as raw:
+            tmp = Path(raw)
+            config = replace(
+                _config(tmp, tmp / "attempts.jsonl"),
+                now=moment,
+                session=date(2026, 11, 18),
+                all_personas=False,
+                force=False,
+                dry_run=True,
+                backfill=False,
+            )
+            log = Provenance(config.provenance_path)
+            self.assertEqual(_sessions_for(config, log), [])
+            results = run_wake(config, gather_fn=fixture_gather)
+            self.assertEqual(results, [])
 
     def test_missing_ledger_token_message_is_soft(self):
         from harness.wake import MISSING_TOKEN

@@ -1,4 +1,4 @@
-"""One wake: personas due now, one ticker each, validate, then the contributor lane."""
+"""One wake: slots that have already passed, one ticker each, validate, then the contributor lane."""
 
 from __future__ import annotations
 
@@ -18,7 +18,13 @@ from harness.provenance import Provenance, now_stamp
 from harness.providers import CursorProvider, GroqProvider, RuleProvider, choose_completion, cursor_binary, select_provider
 from harness.report import DISCLOSURE, model_reply_reason, render_report, write_pair
 from harness.research import Dossier, gather, has_sources
-from harness.schedule import due_slots, session_date
+from harness.schedule import (
+    is_weekday,
+    ledger_accepts_report_date,
+    passed_slots,
+    previous_trading_day,
+    session_date,
+)
 from harness.submit import (
     SubmitResult,
     advance_open_pull_request,
@@ -47,6 +53,7 @@ class WakeConfig:
     all_personas: bool
     persona_id: str
     session: date | None
+    # Parsed for older commands. Slot selection uses passed slots, not this window.
     lookback_minutes: int
     output_dir: Path
     provenance_path: Path
@@ -487,23 +494,77 @@ def _slots_for(persona: Persona, config: WakeConfig, session: str) -> list[tuple
         target = datetime.fromisoformat(f"{session}T{slot.et}:00").replace(tzinfo=timezone.utc)
         return [(slot, target)]
     day = date.fromisoformat(session)
-    return due_slots(persona, config.now, lookback_minutes=config.lookback_minutes, session=day)
+    return passed_slots(persona, config.now, day)
 
 
-def _skip(provenance: Provenance, persona_id: str, session: str, slot_id: str, force: bool) -> bool:
-    """Skip a slot only after a live pull request exists.
+def _is_dry(value: object) -> bool:
+    return value in {True, "true", "True", "1", 1}
 
-    A validation pass that never submitted is retried. A dry-run row does
-    not block the later live wake.
+
+def _skip(
+    provenance: Provenance,
+    persona_id: str,
+    session: str,
+    slot_id: str,
+    force: bool,
+    *,
+    dry_run: bool = False,
+) -> bool:
+    """Skip a slot that already has an attempt for this day and slot.
+
+    A repeated or overlapping wake must not file the same slot twice.
+    A dry-run row does not block the later live wake. ``--force`` files anyway.
     """
     if force:
         return False
     row = provenance.latest().get(f"{persona_id}|{session}|{slot_id}")
-    if not row or row.get("dry_run") in {True, "true", "True", "1", 1}:
+    if not row:
         return False
-    if row.get("pr_url"):
-        return True
-    return row.get("merge_outcome") in {"merged", "auto_merge_requested", "checks_pending"}
+    if _is_dry(row.get("dry_run")) and not dry_run:
+        return False
+    return True
+
+
+def _day_fully_missed(provenance: Provenance, day: date) -> bool:
+    """True when the log has no live attempt for this session date."""
+    key = day.isoformat()
+    for row in provenance.latest().values():
+        if str(row.get("session_date") or "") != key:
+            continue
+        if _is_dry(row.get("dry_run")):
+            continue
+        return False
+    return True
+
+
+def _sessions_for(config: WakeConfig, provenance: Provenance) -> list[date]:
+    """Trading days this wake may file.
+
+    The current weekday, plus the previous trading day when that day has no
+    live attempt. Dates older than that are not filed. The ledger accepts a
+    real ``YYYY-MM-DD`` on the branch, and this list never goes past the
+    previous weekday.
+    """
+    today = session_date(config.now)
+    if config.session is not None:
+        if ledger_accepts_report_date(config.session, today=today):
+            return [config.session]
+        print(f"session {config.session.isoformat()} is not a trading day this wake can file")
+        return []
+    if config.all_personas or config.force:
+        return [today] if is_weekday(today) else []
+    sessions: list[date] = []
+    if is_weekday(today):
+        sessions.append(today)
+    previous = previous_trading_day(today)
+    if (
+        previous not in sessions
+        and _day_fully_missed(provenance, previous)
+        and ledger_accepts_report_date(previous, today=today)
+    ):
+        sessions.append(previous)
+        print(f"catch-up: {previous.isoformat()} has no attempts, filing slots that have already passed")
+    return sessions
 
 
 def backfill(config: WakeConfig, provenance: Provenance) -> None:
@@ -576,65 +637,72 @@ def run_wake(config: WakeConfig, *, gather_fn=gather) -> list[dict]:
     print(f"providers: requested={requested} groq_key={groq_key} cursor_key={cursor_key} cursor_bin={cursor_binary() or 'missing'}")
     if requested == "groq" and select_provider("groq").name == "rule":
         print("GROQ_API_KEY is not set. Reports will use the no-key writer on fetched sources.")
-    session = (config.session or session_date(config.now)).isoformat()
     results = []
+    planned: list[tuple[Persona, Slot, datetime, str]] = []
     try:
-        for persona in personas:
-            try:
-                slots = _slots_for(persona, config, session)
-            except Exception as exc:
-                print(f"{persona.id} schedule failed: {exc}", file=sys.stderr)
-                continue
-            avoid: set[str] = set()
-            for slot, target in slots:
-                if _skip(provenance, persona.id, session, slot.id, config.force):
-                    print(f"{persona.id} {slot.id} already recorded")
-                    continue
+        for session_day in _sessions_for(config, provenance):
+            session = session_day.isoformat()
+            for persona in personas:
                 try:
-                    results.append(
-                        run_slot(
-                            config=config,
-                            persona=persona,
-                            slot=slot,
-                            scheduled_for=target,
-                            session=session,
-                            universe=universe,
-                            ledger_root=ledger_root,
-                            provenance=provenance,
-                            provider=None,
-                            requested=requested,
-                            gather_fn=gather_fn,
-                            avoid=avoid,
-                        )
-                    )
+                    slots = _slots_for(persona, config, session)
                 except Exception as exc:
-                    traceback.print_exc()
-                    record = {
-                        "record_type": "attempt",
-                        "attempt_id": f"{persona.id}|{session}|{slot.id}",
-                        "timestamp": now_stamp(),
-                        "persona_id": persona.id,
-                        "archetype": persona.archetype,
-                        "is_ai_agent": True,
-                        "contributor_kind": "ai_agent_persona",
-                        "slot": slot.id,
-                        "session_date": session,
-                        "local_validation": "fail",
-                        "failure_reason": f"{type(exc).__name__}: {exc}"[:500],
-                        "merge_outcome": "not_submitted",
-                        "ci_outcome": "not_run",
-                        "dry_run": config.dry_run,
-                        "slot_status": "fail",
-                        "disclosure": DISCLOSURE,
-                        "assigned_provider": assigned_provider_name(persona, requested),
-                        "provider": assigned_provider_name(persona, requested),
-                        "model": persona.groq_model,
-                        "assigned_model": persona.groq_model,
-                        "prompt_version": persona.prompt_version,
-                    }
-                    provenance.append(record)
-                    results.append(record)
-                    print(f"{persona.id} {slot.id} failed and the wake continued: {exc}")
+                    print(f"{persona.id} schedule failed: {exc}", file=sys.stderr)
+                    continue
+                for slot, target in slots:
+                    if _skip(provenance, persona.id, session, slot.id, config.force, dry_run=config.dry_run):
+                        print(f"{persona.id} {slot.id} already recorded for {session}")
+                        continue
+                    planned.append((persona, slot, target, session))
+        # Earlier jittered times go out first, so a catch-up keeps the day's order.
+        planned.sort(key=lambda item: (item[2], item[0].id, item[1].id))
+        avoids: dict[tuple[str, str], set[str]] = {}
+        for persona, slot, target, session in planned:
+            avoid = avoids.setdefault((persona.id, session), set())
+            try:
+                results.append(
+                    run_slot(
+                        config=config,
+                        persona=persona,
+                        slot=slot,
+                        scheduled_for=target,
+                        session=session,
+                        universe=universe,
+                        ledger_root=ledger_root,
+                        provenance=provenance,
+                        provider=None,
+                        requested=requested,
+                        gather_fn=gather_fn,
+                        avoid=avoid,
+                    )
+                )
+            except Exception as exc:
+                traceback.print_exc()
+                record = {
+                    "record_type": "attempt",
+                    "attempt_id": f"{persona.id}|{session}|{slot.id}",
+                    "timestamp": now_stamp(),
+                    "persona_id": persona.id,
+                    "archetype": persona.archetype,
+                    "is_ai_agent": True,
+                    "contributor_kind": "ai_agent_persona",
+                    "slot": slot.id,
+                    "session_date": session,
+                    "local_validation": "fail",
+                    "failure_reason": f"{type(exc).__name__}: {exc}"[:500],
+                    "merge_outcome": "not_submitted",
+                    "ci_outcome": "not_run",
+                    "dry_run": config.dry_run,
+                    "slot_status": "fail",
+                    "disclosure": DISCLOSURE,
+                    "assigned_provider": assigned_provider_name(persona, requested),
+                    "provider": assigned_provider_name(persona, requested),
+                    "model": persona.groq_model,
+                    "assigned_model": persona.groq_model,
+                    "prompt_version": persona.prompt_version,
+                }
+                provenance.append(record)
+                results.append(record)
+                print(f"{persona.id} {slot.id} failed and the wake continued: {exc}")
     finally:
         backfill(config, provenance)
     return results
@@ -695,7 +763,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--persona", default="", help="Limit the wake to one persona id.")
     parser.add_argument("--date", default="", help="Session date YYYY-MM-DD. Defaults to the New York date.")
     parser.add_argument("--now", default="", help="Override the clock, ISO-8601 UTC.")
-    parser.add_argument("--lookback", default="40", help="Minutes of slot lateness a wake will still pick up.")
+    parser.add_argument(
+        "--lookback",
+        default="40",
+        help="Kept so older commands still parse. A wake files every passed slot and does not use this window.",
+    )
     parser.add_argument("--output", default="out/wake", help="Where rendered reports are written.")
     parser.add_argument("--provenance", default="data/attempts.jsonl")
     parser.add_argument("--ledger-root", default="", help="Existing agents-unite checkout. Skips cloning.")
@@ -720,7 +792,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wake failed: {exc}", file=sys.stderr)
         return 1
     if not results:
-        print("No personas due in this window.")
+        print("No personas due.")
         return 0
     passed, failed = split_results(results)
     print(f"Wake finished: {len(passed)} passed, {len(failed)} failed.")
