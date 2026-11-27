@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "run_id": "grokbot-routine-2026-11-20",
+      "date": "2026-11-20",
+      "timestamp": "2026-11-21T19:05:27Z",
+      "harness": "grokbot-routine",
+      "tickers_requested": 100,
+      "tickers_written": 100,
+      "llm_provider": "grokbot",
+      "model": "grokbot",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "tokens_source": "unrecorded",
+      "llm_calls": 1,
+      "est_cost_usd": null,
+      "list_price_usd": null,
+      "runtime_s": 52.0,
+      "tokens_per_stock": 0.0,
+      "cost_per_stock": null,
+      "cost_per_50_stocks": null,
+      "list_cost_per_50_stocks": null,
+      "dry_run": false,
+      "notes": "Grok Bot nightly routine; agent-reviewed scores. Usage is billed on the Grok Bot plan and not exposed per run."
+    }
+  ]
+}

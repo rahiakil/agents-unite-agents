@@ -102,15 +102,17 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/attempts.jsonl data/attempts.csv
+          git add data/attempts.jsonl data/attempts.csv data/runs
           if git diff --cached --quiet; then
             echo "No provenance changes."
             exit 0
           fi
-          git commit -m "provenance: append wake log"
+          git commit -m "provenance: append wake log and cost row"
           resolve_provenance() {
             PYTHONPATH=src python3 -c "from harness.provenance import repair_rebase_jsonl; repair_rebase_jsonl('data/attempts.jsonl')"
-            git add data/attempts.jsonl data/attempts.csv
+            # Cost views are rebuilt from the per-run files, so a conflict there resolves itself.
+            PYTHONPATH=src python3 -m harness.costs rebuild
+            git add data/attempts.jsonl data/attempts.csv data/runs
           }
           set +e
           git pull --rebase origin "${GITHUB_REF_NAME}"

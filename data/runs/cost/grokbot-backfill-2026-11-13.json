@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "run_id": "grokbot-backfill-2026-11-13",
+      "date": "2026-11-13",
+      "timestamp": "2026-11-22T09:02:26Z",
+      "harness": "grokbot-backfill",
+      "tickers_requested": 100,
+      "tickers_written": 100,
+      "llm_provider": "groq",
+      "model": "mixed:openai/gpt-oss-120b+openai/gpt-oss-20b",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "tokens_source": "unrecorded",
+      "llm_calls": 100,
+      "est_cost_usd": 0.0,
+      "list_price_usd": null,
+      "runtime_s": 60.4,
+      "tokens_per_stock": 0.0,
+      "cost_per_stock": 0.0,
+      "cost_per_50_stocks": 0.0,
+      "list_cost_per_50_stocks": null,
+      "dry_run": false,
+      "notes": "Groq free tier; per-call token counts were not recorded by backfill.py. Grok Bot orchestration usage not metered per run."
+    }
+  ]
+}

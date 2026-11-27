@@ -1,0 +1,53 @@
+name: Cost page
+
+# Publishes data/runs as a phone-friendly page on GitHub Pages after every
+# collector run (nightly script or persona wake) and on cost-log pushes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/runs/**"
+      - "src/harness/costs.py"
+      - ".github/workflows/pages.yml"
+  workflow_run:
+    workflows: ["Persona wake", "Nightly collection (zero-token)"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Render page
+        run: |
+          PYTHONPATH=src python3 -m harness.costs html site/index.html
+          cp data/runs/cost_log.csv data/runs/cost_log.jsonl site/ 2>/dev/null || true
+          touch site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
