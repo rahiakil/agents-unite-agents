@@ -1,0 +1,89 @@
+name: Nightly collection (zero-token)
+
+# Deterministic S&P 500 sentiment and market-context collection. No LLM call.
+# 01:30 UTC Tue-Sat is 5:30 or 6:30 pm PT, after every US close (EST or EDT).
+# Two later crons are catch-ups for when Actions drops a scheduled run; each
+# run only collects completed sessions that have no batch on main yet, so a
+# catch-up after a successful run does nothing. NYSE holidays are skipped.
+on:
+  schedule:
+    - cron: "30 1 * * 2-6"
+    - cron: "45 3 * * 2-6"
+    - cron: "15 13 * * 2-6"
+  workflow_dispatch:
+    inputs:
+      sessions:
+        description: Space-separated session dates (YYYY-MM-DD), or auto.
+        type: string
+        default: auto
+      backfill:
+        description: Mark reports backfill true (auto = true when run 12h+ after the close).
+        type: choice
+        options: [auto, "true", "false"]
+        default: auto
+      limit:
+        description: Optional, first N tickers only.
+        type: string
+        default: ""
+      dry_run:
+        description: Collect and validate only. No ledger PR.
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      LEDGER_REPO: rahiakil/agents-unite
+      LEDGER_TOKEN: ${{ secrets.LEDGER_TOKEN }}
+      SEC_CONTACT: ${{ secrets.SEC_CONTACT }}
+      SESSIONS: ${{ inputs.sessions || 'auto' }}
+      BACKFILL: ${{ inputs.backfill || 'auto' }}
+      LIMIT: ${{ inputs.limit }}
+      DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+      NIGHTLY_CACHE: ${{ github.workspace }}/.cache/nightly
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the one dependency
+        run: pip install vaderSentiment==3.3.2
+
+      - name: Collect and publish
+        run: bash nightly/publish.sh
+
+      - name: Publish cost log
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/runs
+          if git diff --cached --quiet; then
+            echo "No cost rows."
+            exit 0
+          fi
+          git commit -q -m "costs: nightly collection run"
+          for i in 1 2 3 4 5; do
+            if git pull -q --rebase origin "${GITHUB_REF_NAME}"; then
+              git push -q && exit 0
+            fi
+            # Only the rebuilt views can conflict; rebuild them from the per-run files.
+            PYTHONPATH=src python3 -m harness.costs rebuild
+            git add data/runs
+            GIT_EDITOR=true git rebase --continue || true
+            sleep $((i * 5))
+          done
+          echo "cost log push failed"
+          exit 1

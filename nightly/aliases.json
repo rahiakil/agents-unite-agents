@@ -1,0 +1,442 @@
+{
+ "AAPL": [
+  "Apple"
+ ],
+ "MSFT": [
+  "Microsoft"
+ ],
+ "NVDA": [
+  "Nvidia"
+ ],
+ "AVGO": [
+  "Broadcom"
+ ],
+ "ORCL": [
+  "Oracle"
+ ],
+ "CRM": [
+  "Salesforce"
+ ],
+ "ADBE": [
+  "Adobe"
+ ],
+ "AMD": [
+  "AMD",
+  "Advanced Micro Devices"
+ ],
+ "INTC": [
+  "Intel"
+ ],
+ "CSCO": [
+  "Cisco"
+ ],
+ "IBM": [
+  "IBM"
+ ],
+ "QCOM": [
+  "Qualcomm"
+ ],
+ "TXN": [
+  "Texas Instruments"
+ ],
+ "MU": [
+  "Micron"
+ ],
+ "AMAT": [
+  "Applied Materials"
+ ],
+ "LRCX": [
+  "Lam Research"
+ ],
+ "NOW": [
+  "ServiceNow"
+ ],
+ "INTU": [
+  "Intuit"
+ ],
+ "PANW": [
+  "Palo Alto Networks"
+ ],
+ "ANET": [
+  "Arista"
+ ],
+ "GOOGL": [
+  "Alphabet",
+  "Google"
+ ],
+ "META": [
+  "Meta Platforms",
+  "Meta"
+ ],
+ "NFLX": [
+  "Netflix"
+ ],
+ "DIS": [
+  "Disney"
+ ],
+ "CMCSA": [
+  "Comcast"
+ ],
+ "T": [
+  "AT&T"
+ ],
+ "VZ": [
+  "Verizon"
+ ],
+ "AMZN": [
+  "Amazon"
+ ],
+ "TSLA": [
+  "Tesla"
+ ],
+ "HD": [
+  "Home Depot"
+ ],
+ "MCD": [
+  "McDonald's",
+  "McDonalds"
+ ],
+ "NKE": [
+  "Nike"
+ ],
+ "SBUX": [
+  "Starbucks"
+ ],
+ "LOW": [
+  "Lowe's",
+  "Lowes"
+ ],
+ "TJX": [
+  "TJX",
+  "TJ Maxx"
+ ],
+ "BKNG": [
+  "Booking Holdings"
+ ],
+ "MAR": [
+  "Marriott"
+ ],
+ "GM": [
+  "General Motors",
+  "GM"
+ ],
+ "BRK.B": [
+  "Berkshire"
+ ],
+ "JPM": [
+  "JPMorgan"
+ ],
+ "V": [
+  "Visa"
+ ],
+ "MA": [
+  "Mastercard"
+ ],
+ "BAC": [
+  "Bank of America",
+  "BofA"
+ ],
+ "WFC": [
+  "Wells Fargo"
+ ],
+ "GS": [
+  "Goldman Sachs",
+  "Goldman"
+ ],
+ "MS": [
+  "Morgan Stanley"
+ ],
+ "C": [
+  "Citigroup",
+  "Citi"
+ ],
+ "AXP": [
+  "American Express",
+  "Amex"
+ ],
+ "BLK": [
+  "BlackRock"
+ ],
+ "SCHW": [
+  "Schwab"
+ ],
+ "SPGI": [
+  "S&P Global"
+ ],
+ "PYPL": [
+  "PayPal"
+ ],
+ "LLY": [
+  "Eli Lilly",
+  "Lilly"
+ ],
+ "UNH": [
+  "UnitedHealth"
+ ],
+ "JNJ": [
+  "Johnson & Johnson",
+  "J&J"
+ ],
+ "ABBV": [
+  "AbbVie"
+ ],
+ "MRK": [
+  "Merck"
+ ],
+ "PFE": [
+  "Pfizer"
+ ],
+ "TMO": [
+  "Thermo Fisher"
+ ],
+ "DHR": [
+  "Danaher"
+ ],
+ "ISRG": [
+  "Intuitive Surgical"
+ ],
+ "GILD": [
+  "Gilead"
+ ],
+ "VRTX": [
+  "Vertex"
+ ],
+ "BMY": [
+  "Bristol Myers",
+  "Bristol-Myers"
+ ],
+ "CAT": [
+  "Caterpillar"
+ ],
+ "GE": [
+  "GE Aerospace",
+  "General Electric"
+ ],
+ "BA": [
+  "Boeing"
+ ],
+ "RTX": [
+  "RTX",
+  "Raytheon"
+ ],
+ "LMT": [
+  "Lockheed"
+ ],
+ "HON": [
+  "Honeywell"
+ ],
+ "UNP": [
+  "Union Pacific"
+ ],
+ "UPS": [
+  "UPS"
+ ],
+ "DE": [
+  "Deere"
+ ],
+ "ETN": [
+  "Eaton"
+ ],
+ "XOM": [
+  "Exxon"
+ ],
+ "CVX": [
+  "Chevron"
+ ],
+ "COP": [
+  "ConocoPhillips"
+ ],
+ "SLB": [
+  "SLB",
+  "Schlumberger"
+ ],
+ "EOG": [
+  "EOG"
+ ],
+ "OXY": [
+  "Occidental"
+ ],
+ "WMT": [
+  "Walmart"
+ ],
+ "PG": [
+  "Procter",
+  "P&G"
+ ],
+ "COST": [
+  "Costco"
+ ],
+ "KO": [
+  "Coca-Cola"
+ ],
+ "PEP": [
+  "PepsiCo",
+  "Pepsi"
+ ],
+ "PM": [
+  "Philip Morris"
+ ],
+ "MO": [
+  "Altria"
+ ],
+ "NEE": [
+  "NextEra"
+ ],
+ "DUK": [
+  "Duke Energy"
+ ],
+ "SO": [
+  "Southern Company",
+  "Southern Co"
+ ],
+ "CEG": [
+  "Constellation Energy"
+ ],
+ "AMT": [
+  "American Tower"
+ ],
+ "PLD": [
+  "Prologis"
+ ],
+ "EQIX": [
+  "Equinix"
+ ],
+ "LIN": [
+  "Linde"
+ ],
+ "FCX": [
+  "Freeport"
+ ],
+ "NEM": [
+  "Newmont"
+ ],
+ "PLTR": [
+  "Palantir"
+ ],
+ "UBER": [
+  "Uber"
+ ],
+ "COIN": [
+  "Coinbase"
+ ],
+ "CARR": [
+  "Carrier Global",
+  "Carrier"
+ ],
+ "DECK": [
+  "Deckers",
+  "Deckers Brands"
+ ],
+ "LVS": [
+  "Las Vegas Sands",
+  "Sands"
+ ],
+ "VRSK": [
+  "Verisk"
+ ],
+ "BF.B": [
+  "Brown-Forman"
+ ],
+ "AJG": [
+  "Arthur J. Gallagher",
+  "Gallagher"
+ ],
+ "KKR": [
+  "KKR"
+ ],
+ "MKC": [
+  "McCormick"
+ ],
+ "NWSA": [
+  "News Corp"
+ ],
+ "NWS": [
+  "News Corp"
+ ],
+ "FOXA": [
+  "Fox Corp",
+  "Fox Corporation"
+ ],
+ "FOX": [
+  "Fox Corp",
+  "Fox Corporation"
+ ],
+ "XYZ": [
+  "Block Inc",
+  "Block"
+ ],
+ "EG": [
+  "Everest Group",
+  "Everest"
+ ],
+ "HIG": [
+  "The Hartford",
+  "Hartford"
+ ],
+ "BALL": [
+  "Ball Corp",
+  "Ball Corporation"
+ ],
+ "WAT": [
+  "Waters Corp",
+  "Waters"
+ ],
+ "DOV": [
+  "Dover Corp",
+  "Dover"
+ ],
+ "TT": [
+  "Trane Technologies",
+  "Trane"
+ ],
+ "ZBRA": [
+  "Zebra Technologies",
+  "Zebra"
+ ],
+ "ROP": [
+  "Roper Technologies",
+  "Roper"
+ ],
+ "TYL": [
+  "Tyler Technologies",
+  "Tyler"
+ ],
+ "FLEX": [
+  "Flex Ltd",
+  "Flex"
+ ],
+ "DOW": [
+  "Dow Inc",
+  "Dow"
+ ],
+ "GOOG": [
+  "Alphabet",
+  "Google"
+ ],
+ "CME": [
+  "CME Group",
+  "CME"
+ ],
+ "AIG": [
+  "AIG",
+  "American International Group"
+ ],
+ "L": [
+  "Loews"
+ ],
+ "EL": [
+  "Estee Lauder",
+  "Estée Lauder"
+ ],
+ "TRV": [
+  "Travelers"
+ ],
+ "WMB": [
+  "Williams Companies",
+  "Williams"
+ ],
+ "PEG": [
+  "PSEG",
+  "Public Service Enterprise"
+ ]
+}

@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import sys
+import time
 import traceback
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -179,7 +180,24 @@ def _llm_brief(persona: Persona, dossier: Dossier, provider) -> object:
         "Do not invent URLs, filings, or prices. Do not give trading instructions. "
         "Do not use an em dash."
     )
-    return provider.complete(system, json.dumps(payload))
+    user = json.dumps(payload)
+    completion = provider.complete(system, user)
+    completion.prompt_chars = len(system) + len(user)
+    return completion
+
+
+def _token_fields(completion) -> dict:
+    """Provider-reported tokens when present, else a 4 chars per token estimate."""
+    if completion is None or getattr(completion, "provider", "rule") == "rule":
+        return {"prompt_tokens": 0, "completion_tokens": 0, "tokens_source": "none"}
+    pt, ct = completion.prompt_tokens, completion.completion_tokens
+    if pt is not None or ct is not None:
+        return {"prompt_tokens": int(pt or 0), "completion_tokens": int(ct or 0), "tokens_source": "provider",
+                "cost_usd": completion.cost_usd}
+    if not completion.text and completion.error:
+        return {"prompt_tokens": 0, "completion_tokens": 0, "tokens_source": "none"}
+    return {"prompt_tokens": int(getattr(completion, "prompt_chars", 0) / 4),
+            "completion_tokens": int(len(completion.text or "") / 4), "tokens_source": "estimated"}
 
 
 def _base_record(persona: Persona, session: str, slot: Slot, scheduled_for: str, provider, requested: str) -> dict:
@@ -373,6 +391,7 @@ def run_slot(
     record["ticker"] = ticker
     try:
         completion = _complete_for(persona, dossier, requested, session, record)
+        record.update(_token_fields(completion))
         rendered = render_report(
             persona,
             dossier,
@@ -786,11 +805,20 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv(ROOT / ".env")
     args = parse_args(argv)
     config = build_config(args)
+    started = time.time()
     try:
         results = run_wake(config)
     except Exception as exc:
         print(f"wake failed: {exc}", file=sys.stderr)
         return 1
+    try:
+        from harness import costs
+
+        rows = costs.persona_rows(results, run_id=costs.default_run_id("persona-wake"),
+                                  runtime_s=time.time() - started, dry_run=config.dry_run)
+        print(f"cost log: {costs.write_run(rows)}")
+    except Exception as exc:  # the cost log must never fail a wake
+        print(f"cost log failed: {exc}", file=sys.stderr)
     if not results:
         print("No personas due.")
         return 0

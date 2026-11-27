@@ -52,6 +52,9 @@ COLUMNS = [
     "failure_reason",
     "dry_run",
     "disclosure",
+    "prompt_tokens",
+    "completion_tokens",
+    "tokens_source",
 ]
 
 TERMINAL_MERGE = {"merged", "closed_unmerged"}
