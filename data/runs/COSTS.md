@@ -4,7 +4,7 @@ Rebuilt by `python -m harness.costs rebuild` after every collector run. Raw rows
 
 `est cost` is what was actually spent (0 for the lexicon script and free tiers). `list price` prices the same tokens at the provider's published rate. Rows with `tokens_source: estimated` used 4 characters per token.
 
-All time: 23 runs, 2,292 stock reports, 0 tokens, est cost $0.0000, 0 tokens per stock, $0.0000 per 50 stocks.
+All time: 24 runs, 2,793 stock reports, 0 tokens, est cost $0.0000, 0 tokens per stock, $0.0000 per 50 stocks.
 
 ## By harness
 
@@ -12,11 +12,13 @@ All time: 23 runs, 2,292 stock reports, 0 tokens, est cost $0.0000, 0 tokens per
 |---|---|---|---|---|---|---|---|---|
 | grokbot-backfill | 21 | 2,092 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 78 |
 | grokbot-routine | 2 | 200 | 0 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 | 33 |
+| nightly-script | 1 | 501 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 266 |
 
 ## By day and harness
 
 | Day | Harness | Runs | Stocks written | Tokens | Est cost | List price | Cost/50 stocks |
 |---|---|---|---|---|---|---|---|
+| 2026-11-27 | nightly-script | 1 | 501 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-25 | grokbot-routine | 1 | 100 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 |
 | 2026-11-20 | grokbot-routine | 1 | 100 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 |
 | 2026-11-19 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
@@ -50,3 +52,4 @@ All time: 23 runs, 2,292 stock reports, 0 tokens, est cost $0.0000, 0 tokens per
 | groq | mixed:openai/gpt-oss-120b+openai/gpt-oss-20b+qwen/qwen3.8-27b | 100 | 0 | $0.0000 | $0.0000 |
 | groq | openai/gpt-oss-120b | 991 | 0 | $0.0000 | $0.0000 |
 | groq | openai/gpt-oss-20b | 698 | 0 | $0.0000 | $0.0000 |
+| lexicon | lexicon-vader-fin-v1 | 0 | 0 | $0.0000 | $0.0000 |
