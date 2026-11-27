@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "run_id": "nightly-script-2026-11-23-gh46081344811-1",
+      "date": "2026-11-23",
+      "timestamp": "2026-11-27T23:18:35Z",
+      "harness": "nightly-script",
+      "tickers_requested": 503,
+      "tickers_written": 482,
+      "llm_provider": "lexicon",
+      "model": "lexicon-vader-fin-v1",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "tokens_source": "none",
+      "llm_calls": 0,
+      "est_cost_usd": 0.0,
+      "list_price_usd": null,
+      "runtime_s": 250.5,
+      "tokens_per_stock": 0.0,
+      "cost_per_stock": 0.0,
+      "cost_per_50_stocks": 0.0,
+      "list_cost_per_50_stocks": null,
+      "dry_run": false,
+      "notes": "backfill=True headlines=2651 http_requests=1518 throttled=3"
+    }
+  ]
+}

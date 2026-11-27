@@ -1,0 +1,87 @@
+{
+  "status": "ok",
+  "as_of": "2026-11-23",
+  "generated_at": "2026-11-27T23:14:25Z",
+  "harness": "agents-unite-nightly-script",
+  "method": "lexicon-vader-fin-v1+nightly-script-v1",
+  "backfill": true,
+  "early_close": false,
+  "tickers_requested": 503,
+  "already_present": 0,
+  "tickers_written": 482,
+  "skipped_thin": 20,
+  "headlines_kept": 2651,
+  "headlines_raw": 12773,
+  "news_errors": 0,
+  "sec_filings": 56,
+  "sec_errors": 0,
+  "bullish": 74,
+  "bearish": 2,
+  "neutral": 406,
+  "avg_sentiment": 0.107,
+  "market_context": {
+    "S&P 500": {
+      "close": 7237.1699,
+      "change_pct": 4.729
+    },
+    "Nasdaq Composite": {
+      "close": 24089.5605,
+      "change_pct": 6.507
+    },
+    "Dow Jones": {
+      "close": 49595.3086,
+      "change_pct": 3.007
+    },
+    "Russell 2000": {
+      "close": 2669.6599,
+      "change_pct": 3.403
+    },
+    "VIX": {
+      "close": 26.62,
+      "change_pct": -25.829
+    },
+    "US 10y yield": {
+      "close": 4.918,
+      "change_pct": 0.122
+    },
+    "WTI crude": {
+      "close": 80.17,
+      "change_pct": -4.537
+    },
+    "Gold": {
+      "close": 3651.3999,
+      "change_pct": 3.869
+    }
+  },
+  "http": {
+    "requests": 1518,
+    "throttled": 3,
+    "cache_hits": 2,
+    "errors": 0
+  },
+  "runtime_s": 250.5,
+  "llm_tokens": 0,
+  "failures": [
+    "AOS: 0 dated headline(s) in window; skipped",
+    "ARE: 0 dated headline(s) in window; skipped",
+    "ADM: 0 dated headline(s) in window; skipped",
+    "AIZ: 0 dated headline(s) in window; skipped",
+    "BALL: 0 dated headline(s) in window; skipped",
+    "CHD: 0 dated headline(s) in window; skipped",
+    "DOV: 0 dated headline(s) in window; skipped",
+    "EFX: 0 dated headline(s) in window; skipped",
+    "ERIE: 0 dated headline(s) in window; skipped",
+    "GL: 0 dated headline(s) in window; skipped",
+    "IR: 0 dated headline(s) in window; skipped",
+    "LII: 0 dated headline(s) in window; skipped",
+    "MRSH: 0 dated headline(s) in window; skipped",
+    "MLM: 0 dated headline(s) in window; skipped",
+    "NVR: 0 dated headline(s) in window; skipped",
+    "ORLY: 0 dated headline(s) in window; skipped",
+    "PKG: 0 dated headline(s) in window; skipped",
+    "PHM: 0 dated headline(s) in window; skipped",
+    "SNDK: price no bar for 2026-11-23",
+    "SPG: 0 dated headline(s) in window; skipped",
+    "VRSN: 0 dated headline(s) in window; skipped"
+  ]
+}

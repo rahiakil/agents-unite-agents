@@ -4,7 +4,7 @@ Rebuilt by `python -m harness.costs rebuild` after every collector run. Raw rows
 
 `est cost` is what was actually spent (0 for the lexicon script and free tiers). `list price` prices the same tokens at the provider's published rate. Rows with `tokens_source: estimated` used 4 characters per token.
 
-All time: 24 runs, 2,793 stock reports, 0 tokens, est cost $0.0000, 0 tokens per stock, $0.0000 per 50 stocks.
+All time: 26 runs, 3,759 stock reports, 0 tokens, est cost $0.0000, 0 tokens per stock, $0.0000 per 50 stocks.
 
 ## By harness
 
@@ -12,7 +12,7 @@ All time: 24 runs, 2,793 stock reports, 0 tokens, est cost $0.0000, 0 tokens per
 |---|---|---|---|---|---|---|---|---|
 | grokbot-backfill | 21 | 2,092 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 78 |
 | grokbot-routine | 2 | 200 | 0 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 | 33 |
-| nightly-script | 1 | 501 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 266 |
+| nightly-script | 3 | 1,467 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 256 |
 
 ## By day and harness
 
@@ -20,6 +20,8 @@ All time: 24 runs, 2,793 stock reports, 0 tokens, est cost $0.0000, 0 tokens per
 |---|---|---|---|---|---|---|---|
 | 2026-11-27 | nightly-script | 1 | 501 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-25 | grokbot-routine | 1 | 100 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 |
+| 2026-11-24 | nightly-script | 1 | 484 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-23 | nightly-script | 1 | 482 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-20 | grokbot-routine | 1 | 100 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 |
 | 2026-11-19 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-18 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
