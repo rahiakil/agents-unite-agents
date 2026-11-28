@@ -4,7 +4,7 @@ Rebuilt by `python -m harness.costs rebuild` after every collector run. Raw rows
 
 `est cost` is what was actually spent (0 for the lexicon script and free tiers). `list price` prices the same tokens at the provider's published rate. Rows with `tokens_source: estimated` used 4 characters per token.
 
-All time: 65 runs, 12,823 stock reports written, 2h 0m recorded runtime, 13,964 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
+All time: 75 runs, 17,653 stock reports written, 2h 40m recorded runtime, 13,964 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
 
 ## By harness
 
@@ -12,7 +12,7 @@ All time: 65 runs, 12,823 stock reports written, 2h 0m recorded runtime, 13,964 
 |---|---|---|---|---|---|---|---|---|
 | grokbot-backfill | 21 | 2,092 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 78 |
 | grokbot-routine | 2 | 200 | 0 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 | 33 |
-| nightly-backfill | 25 | 9,006 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 178 |
+| nightly-backfill | 35 | 13,836 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 197 |
 | nightly-script | 3 | 1,467 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 256 |
 | persona-wake | 14 | 58 | 13,964 | 241 | $0.0000 | $0.0011 | $0.0000 | 20 |
 
@@ -73,8 +73,18 @@ All time: 65 runs, 12,823 stock reports written, 2h 0m recorded runtime, 13,964 
 | 2026-10-27 | grokbot-backfill | 1 | 97 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-10-26 | nightly-backfill | 1 | 406 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-10-26 | grokbot-backfill | 1 | 97 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-23 | nightly-backfill | 1 | 403 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-10-23 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-22 | nightly-backfill | 1 | 403 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-10-22 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-21 | nightly-backfill | 1 | 503 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-20 | nightly-backfill | 1 | 503 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-19 | nightly-backfill | 1 | 503 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-16 | nightly-backfill | 1 | 503 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-15 | nightly-backfill | 1 | 503 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-14 | nightly-backfill | 1 | 503 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-13 | nightly-backfill | 1 | 503 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-10-12 | nightly-backfill | 1 | 503 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2025-08-05 | nightly-backfill | 1 | 499 | 0 | $0.0000 | $0.0000 | $0.0000 |
 
 ## By model

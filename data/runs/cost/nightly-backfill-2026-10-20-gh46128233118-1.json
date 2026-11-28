@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "run_id": "nightly-backfill-2026-10-20-gh46128233118-1",
+      "date": "2026-10-20",
+      "timestamp": "2026-11-28T09:17:17Z",
+      "harness": "nightly-backfill",
+      "tickers_requested": 503,
+      "tickers_written": 503,
+      "llm_provider": "lexicon",
+      "model": "lexicon-vader-fin-v1",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "tokens_source": "none",
+      "llm_calls": 0,
+      "est_cost_usd": 0.0,
+      "list_price_usd": null,
+      "runtime_s": 253.6,
+      "tokens_per_stock": 0.0,
+      "cost_per_stock": 0.0,
+      "cost_per_50_stocks": 0.0,
+      "list_cost_per_50_stocks": null,
+      "dry_run": false,
+      "notes": "backfill=True headlines=1330 http_requests=508 throttled=5"
+    }
+  ]
+}

@@ -1,6 +1,106 @@
 {
- "cursor": "2026-10-23",
+ "cursor": "2026-10-09",
  "days": {
+  "2026-10-12": {
+   "already_present": 0,
+   "done_at": "2026-11-28T09:50:46Z",
+   "headlines": 1319,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/162",
+   "preliminary": 157,
+   "reports": 503,
+   "runtime_s": 239.1,
+   "state": "merged"
+  },
+  "2026-10-13": {
+   "already_present": 0,
+   "done_at": "2026-11-28T09:45:51Z",
+   "headlines": 1306,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/161",
+   "preliminary": 163,
+   "reports": 503,
+   "runtime_s": 264.7,
+   "state": "merged"
+  },
+  "2026-10-14": {
+   "already_present": 0,
+   "done_at": "2026-11-28T09:40:11Z",
+   "headlines": 1796,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/160",
+   "preliminary": 113,
+   "reports": 503,
+   "runtime_s": 236.2,
+   "state": "merged"
+  },
+  "2026-10-15": {
+   "already_present": 0,
+   "done_at": "2026-11-28T09:34:56Z",
+   "headlines": 2187,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/159",
+   "preliminary": 75,
+   "reports": 503,
+   "runtime_s": 270.5,
+   "state": "merged"
+  },
+  "2026-10-16": {
+   "already_present": 0,
+   "done_at": "2026-11-28T09:29:29Z",
+   "headlines": 2287,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/158",
+   "preliminary": 64,
+   "reports": 503,
+   "runtime_s": 253.9,
+   "state": "merged"
+  },
+  "2026-10-19": {
+   "already_present": 0,
+   "done_at": "2026-11-28T09:23:57Z",
+   "headlines": 1159,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/157",
+   "preliminary": 162,
+   "reports": 503,
+   "runtime_s": 248.4,
+   "state": "merged"
+  },
+  "2026-10-20": {
+   "already_present": 0,
+   "done_at": "2026-11-28T09:18:34Z",
+   "headlines": 1330,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/156",
+   "preliminary": 142,
+   "reports": 503,
+   "runtime_s": 253.6,
+   "state": "merged"
+  },
+  "2026-10-21": {
+   "already_present": 0,
+   "done_at": "2026-11-28T09:13:02Z",
+   "headlines": 1902,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/155",
+   "preliminary": 84,
+   "reports": 503,
+   "runtime_s": 252.1,
+   "state": "merged"
+  },
+  "2026-10-22": {
+   "already_present": 100,
+   "done_at": "2026-11-28T09:07:29Z",
+   "headlines": 1532,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/154",
+   "preliminary": 52,
+   "reports": 403,
+   "runtime_s": 190.1,
+   "state": "merged"
+  },
+  "2026-10-23": {
+   "already_present": 100,
+   "done_at": "2026-11-28T09:03:04Z",
+   "headlines": 1777,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/153",
+   "preliminary": 46,
+   "reports": 403,
+   "runtime_s": 237.1,
+   "state": "merged"
+  },
   "2026-10-26": {
    "already_present": 97,
    "done_at": "2026-11-28T02:39:12Z",
@@ -242,22 +342,12 @@
    "state": "merged"
   }
  },
- "days_merged": 24,
- "earliest_merged": "2026-10-26",
+ "days_merged": 34,
+ "earliest_merged": "2026-10-12",
  "empty_news_streak": 0,
  "newest": "2026-11-27",
- "preliminary_reports": 885,
+ "preliminary_reports": 1943,
  "prs": [
-  "https://github.com/rahiakil/agents-unite/pull/108",
-  "https://github.com/rahiakil/agents-unite/pull/110",
-  "https://github.com/rahiakil/agents-unite/pull/111",
-  "https://github.com/rahiakil/agents-unite/pull/112",
-  "https://github.com/rahiakil/agents-unite/pull/113",
-  "https://github.com/rahiakil/agents-unite/pull/114",
-  "https://github.com/rahiakil/agents-unite/pull/115",
-  "https://github.com/rahiakil/agents-unite/pull/116",
-  "https://github.com/rahiakil/agents-unite/pull/117",
-  "https://github.com/rahiakil/agents-unite/pull/118",
   "https://github.com/rahiakil/agents-unite/pull/119",
   "https://github.com/rahiakil/agents-unite/pull/120",
   "https://github.com/rahiakil/agents-unite/pull/121",
@@ -267,14 +357,24 @@
   "https://github.com/rahiakil/agents-unite/pull/125",
   "https://github.com/rahiakil/agents-unite/pull/126",
   "https://github.com/rahiakil/agents-unite/pull/127",
-  "https://github.com/rahiakil/agents-unite/pull/141"
+  "https://github.com/rahiakil/agents-unite/pull/141",
+  "https://github.com/rahiakil/agents-unite/pull/153",
+  "https://github.com/rahiakil/agents-unite/pull/154",
+  "https://github.com/rahiakil/agents-unite/pull/155",
+  "https://github.com/rahiakil/agents-unite/pull/156",
+  "https://github.com/rahiakil/agents-unite/pull/157",
+  "https://github.com/rahiakil/agents-unite/pull/158",
+  "https://github.com/rahiakil/agents-unite/pull/159",
+  "https://github.com/rahiakil/agents-unite/pull/160",
+  "https://github.com/rahiakil/agents-unite/pull/161",
+  "https://github.com/rahiakil/agents-unite/pull/162"
  ],
- "reports_written": 8507,
- "runs": 2,
+ "reports_written": 13337,
+ "runs": 3,
  "started_at": "2026-11-28T01:10:00Z",
  "status": "running",
  "stop_reason": "time budget used; continues next run",
- "updated_at": "2026-11-28T02:39:12Z",
- "year_sessions_remaining": 227,
+ "updated_at": "2026-11-28T09:50:46Z",
+ "year_sessions_remaining": 217,
  "year_target": "2025-11-27"
 }
