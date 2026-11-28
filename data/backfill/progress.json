@@ -1,17 +1,151 @@
 {
- "cursor": "2026-11-27",
- "days": {},
- "days_merged": 0,
- "earliest_merged": null,
+ "cursor": "2026-11-10",
+ "days": {
+  "2026-11-11": {
+   "already_present": 100,
+   "done_at": "2026-11-28T01:43:34Z",
+   "headlines": 1595,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/116",
+   "preliminary": 34,
+   "reports": 403,
+   "runtime_s": 197.7,
+   "state": "merged"
+  },
+  "2026-11-12": {
+   "already_present": 99,
+   "done_at": "2026-11-28T01:39:20Z",
+   "headlines": 1935,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/115",
+   "preliminary": 23,
+   "reports": 404,
+   "runtime_s": 190.3,
+   "state": "merged"
+  },
+  "2026-11-13": {
+   "already_present": 100,
+   "done_at": "2026-11-28T01:35:14Z",
+   "headlines": 2047,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/114",
+   "preliminary": 17,
+   "reports": 403,
+   "runtime_s": 207.4,
+   "state": "merged"
+  },
+  "2026-11-16": {
+   "already_present": 100,
+   "done_at": "2026-11-28T01:30:50Z",
+   "headlines": 1342,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/113",
+   "preliminary": 58,
+   "reports": 403,
+   "runtime_s": 192.2,
+   "state": "merged"
+  },
+  "2026-11-17": {
+   "already_present": 100,
+   "done_at": "2026-11-28T01:26:19Z",
+   "headlines": 1580,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/112",
+   "preliminary": 40,
+   "reports": 403,
+   "runtime_s": 189.9,
+   "state": "merged"
+  },
+  "2026-11-18": {
+   "already_present": 100,
+   "done_at": "2026-11-28T01:22:13Z",
+   "headlines": 2141,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/111",
+   "preliminary": 23,
+   "reports": 403,
+   "runtime_s": 189.9,
+   "state": "merged"
+  },
+  "2026-11-19": {
+   "already_present": 100,
+   "done_at": "2026-11-28T01:17:44Z",
+   "headlines": 2575,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/110",
+   "preliminary": 6,
+   "reports": 403,
+   "runtime_s": 205.2,
+   "state": "merged"
+  },
+  "2026-11-20": {
+   "already_present": 100,
+   "done_at": "2026-11-28T01:13:24Z",
+   "headlines": 2677,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/108",
+   "preliminary": 4,
+   "reports": 402,
+   "runtime_s": 201.6,
+   "state": "merged"
+  },
+  "2026-11-23": {
+   "already_present": 482,
+   "done_at": "2026-11-28T01:09:06Z",
+   "headlines": 1,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/107",
+   "preliminary": 19,
+   "reports": 20,
+   "runtime_s": 10.4,
+   "state": "merged"
+  },
+  "2026-11-24": {
+   "already_present": 484,
+   "done_at": "2026-11-28T01:08:23Z",
+   "headlines": 1,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/106",
+   "preliminary": 17,
+   "reports": 18,
+   "runtime_s": 9.0,
+   "state": "merged"
+  },
+  "2026-11-25": {
+   "already_present": 100,
+   "done_at": "2026-11-28T01:07:19Z",
+   "headlines": 2684,
+   "pr": "https://github.com/rahiakil/agents-unite/pull/105",
+   "preliminary": 7,
+   "reports": 402,
+   "runtime_s": 199.7,
+   "state": "merged"
+  },
+  "2026-11-27": {
+   "already_present": 501,
+   "done_at": "2026-11-28T01:02:59Z",
+   "headlines": 0,
+   "pr": "",
+   "preliminary": 0,
+   "reports": 0,
+   "runtime_s": 2.3,
+   "state": "merged"
+  }
+ },
+ "days_merged": 12,
+ "earliest_merged": "2026-11-11",
  "empty_news_streak": 0,
  "newest": "2026-11-27",
- "preliminary_reports": 0,
- "prs": [],
- "reports_written": 0,
- "runs": 0,
+ "preliminary_reports": 248,
+ "prs": [
+  "https://github.com/rahiakil/agents-unite/pull/105",
+  "https://github.com/rahiakil/agents-unite/pull/106",
+  "https://github.com/rahiakil/agents-unite/pull/107",
+  "https://github.com/rahiakil/agents-unite/pull/108",
+  "https://github.com/rahiakil/agents-unite/pull/110",
+  "https://github.com/rahiakil/agents-unite/pull/111",
+  "https://github.com/rahiakil/agents-unite/pull/112",
+  "https://github.com/rahiakil/agents-unite/pull/113",
+  "https://github.com/rahiakil/agents-unite/pull/114",
+  "https://github.com/rahiakil/agents-unite/pull/115",
+  "https://github.com/rahiakil/agents-unite/pull/116"
+ ],
+ "reports_written": 3664,
+ "runs": 1,
  "started_at": "2026-11-28T01:10:00Z",
  "status": "running",
- "stop_reason": "",
- "updated_at": "2026-11-28T01:10:00Z",
+ "stop_reason": "time budget used; continues next run",
+ "updated_at": "2026-11-28T01:43:34Z",
+ "year_sessions_remaining": 239,
  "year_target": "2025-11-27"
 }

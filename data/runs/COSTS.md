@@ -4,7 +4,7 @@ Rebuilt by `python -m harness.costs rebuild` after every collector run. Raw rows
 
 `est cost` is what was actually spent (0 for the lexicon script and free tiers). `list price` prices the same tokens at the provider's published rate. Rows with `tokens_source: estimated` used 4 characters per token.
 
-All time: 40 runs, 4,292 stock reports written, 45m 36s recorded runtime, 0 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
+All time: 52 runs, 7,956 stock reports written, 1h 15m recorded runtime, 0 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
 
 ## By harness
 
@@ -12,7 +12,7 @@ All time: 40 runs, 4,292 stock reports written, 45m 36s recorded runtime, 0 reco
 |---|---|---|---|---|---|---|---|---|
 | grokbot-backfill | 21 | 2,092 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 78 |
 | grokbot-routine | 2 | 200 | 0 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 | 33 |
-| nightly-backfill | 1 | 499 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 270 |
+| nightly-backfill | 13 | 4,163 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 159 |
 | nightly-script | 3 | 1,467 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 256 |
 | persona-wake | 13 | 34 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 0 |
 
@@ -22,20 +22,32 @@ All time: 40 runs, 4,292 stock reports written, 45m 36s recorded runtime, 0 reco
 |---|---|---|---|---|---|---|---|
 | 2026-11-27 | persona-wake | 4 | 12 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-27 | nightly-script | 1 | 501 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-27 | nightly-backfill | 1 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-26 | persona-wake | 4 | 18 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-25 | nightly-backfill | 1 | 402 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-25 | grokbot-routine | 1 | 100 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 |
 | 2026-11-24 | persona-wake | 1 | 1 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-24 | nightly-script | 1 | 484 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-24 | nightly-backfill | 1 | 18 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-23 | persona-wake | 1 | 1 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-23 | nightly-script | 1 | 482 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-23 | nightly-backfill | 1 | 20 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-21 | persona-wake | 3 | 2 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-20 | nightly-backfill | 1 | 402 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-20 | grokbot-routine | 1 | 100 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 |
+| 2026-11-19 | nightly-backfill | 1 | 403 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-19 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-18 | nightly-backfill | 1 | 403 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-18 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-17 | nightly-backfill | 1 | 403 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-17 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-16 | nightly-backfill | 1 | 403 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-16 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-13 | nightly-backfill | 1 | 403 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-13 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-12 | nightly-backfill | 1 | 404 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-12 | grokbot-backfill | 1 | 99 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-11 | nightly-backfill | 1 | 403 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-11 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-10 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-09 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
