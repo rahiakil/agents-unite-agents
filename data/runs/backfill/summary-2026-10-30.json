@@ -1,0 +1,66 @@
+{
+  "status": "ok",
+  "as_of": "2026-10-30",
+  "generated_at": "2026-11-28T02:17:56Z",
+  "harness": "agents-unite-nightly-script",
+  "method": "lexicon-vader-fin-v1+nightly-script-v1",
+  "backfill": true,
+  "early_close": false,
+  "tickers_requested": 503,
+  "already_present": 100,
+  "tickers_written": 403,
+  "skipped_thin": 0,
+  "preliminary": 30,
+  "headlines_kept": 2260,
+  "headlines_raw": 6941,
+  "news_errors": 0,
+  "sec_filings": 339,
+  "sec_errors": 0,
+  "bullish": 61,
+  "bearish": 7,
+  "neutral": 305,
+  "avg_sentiment": 0.106,
+  "market_context": {
+    "S&P 500": {
+      "close": 7580.0698,
+      "change_pct": -1.818
+    },
+    "Nasdaq Composite": {
+      "close": 25437.0,
+      "change_pct": -2.856
+    },
+    "Dow Jones": {
+      "close": 51770.3086,
+      "change_pct": -1.093
+    },
+    "Russell 2000": {
+      "close": 2811.8401,
+      "change_pct": -1.657
+    },
+    "VIX": {
+      "close": 19.42,
+      "change_pct": 12.907
+    },
+    "US 10y yield": {
+      "close": 4.929,
+      "change_pct": -1.203
+    },
+    "WTI crude": {
+      "close": 104.12,
+      "change_pct": 2.078
+    },
+    "Gold": {
+      "close": 3898.8999,
+      "change_pct": -3.287
+    }
+  },
+  "http": {
+    "requests": 407,
+    "throttled": 4,
+    "cache_hits": 814,
+    "errors": 0
+  },
+  "runtime_s": 205.3,
+  "llm_tokens": 0,
+  "failures": []
+}
