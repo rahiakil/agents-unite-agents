@@ -81,3 +81,12 @@ class UniverseTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SecContactTests(unittest.TestCase):
+    def test_name_and_email(self):
+        self.assertEqual(N.sec_user_agent(raw="Parag Paul parag@rigai.co"), "Parag Paul parag@rigai.co")
+        self.assertEqual(N.sec_user_agent(raw="parag@rigai.co"), "Parag Paul parag@rigai.co")
+        self.assertEqual(N.sec_user_agent(raw="", name="", email=""), "Parag Paul parag@rigai.co")
+        self.assertEqual(N.sec_user_agent(raw="Jane Doe jane@example.com"), "Jane Doe jane@example.com")
+        self.assertIsNone(N.parse_sec_contact(raw="Name Only", name="", email=""))

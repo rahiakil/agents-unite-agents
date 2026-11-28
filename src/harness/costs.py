@@ -174,9 +174,12 @@ def summary_md(rows: list[dict]) -> str:
         "`est cost` is what was actually spent (0 for the lexicon script and free tiers). "
         "`list price` prices the same tokens at the provider's published rate. "
         "Rows with `tokens_source: estimated` used 4 characters per token.", "",
-        f"All time: {len({r['run_id'] for r in live})} runs, {tot_w:,} stock reports, {tot_tok:,} tokens, "
-        f"est cost {_money(tot_cost)}, "
-        f"{(tot_tok / max(1, tot_w)):,.0f} tokens per stock, {_money(tot_cost / max(1, tot_w) * 50)} per 50 stocks.", "",
+        f"All time: {len({r['run_id'] for r in live})} runs, {tot_w:,} stock reports written, "
+        f"{_fmt_runtime(sum(r.get('runtime_s') or 0 for r in live))} recorded runtime, "
+        f"{tot_tok:,} recorded LLM tokens, est cost {_money(tot_cost)}, "
+        f"{_money(tot_cost / max(1, tot_w) * 50)} per 50 stocks. "
+        "A zero token or dollar total is expected for the lexicon script and free tiers; "
+        "it does not mean the collector did nothing.", "",
         "## By harness", "",
         "| Harness | Runs | Stocks written | Tokens | Tokens/stock | Est cost | List price | Cost/50 stocks | Avg runtime s |",
         "|---|---|---|---|---|---|---|---|---|",
@@ -208,38 +211,66 @@ def _esc(v) -> str:
     return str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _fmt_runtime(seconds: float) -> str:
+    seconds = float(seconds or 0)
+    if seconds <= 0:
+        return "n/a"
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    minutes, rem = divmod(int(round(seconds)), 60)
+    if minutes < 60:
+        return f"{minutes}m {rem}s" if rem else f"{minutes}m"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}h {minutes}m"
+
+
 def summary_html(rows: list[dict]) -> str:
-    """Mobile-friendly static page: totals, a per-day token chart, tables by harness and day."""
+    """Mobile-friendly static page. Leads with activity (runs, stocks, runtime)
+    so a zero-token or free-tier day does not look like nothing happened."""
     live = [r for r in rows if not r.get("dry_run")]
     tot_cost = sum(r.get("est_cost_usd") or 0 for r in live)
     tot_list = sum(r.get("list_price_usd") or 0 for r in live)
     tot_tok = sum(r.get("total_tokens") or 0 for r in live)
     tot_w = sum(r.get("tickers_written") or 0 for r in live)
+    tot_req = sum(r.get("tickers_requested") or 0 for r in live)
+    tot_run = sum(r.get("runtime_s") or 0 for r in live)
+    n_runs = len({r["run_id"] for r in live})
+    unrecorded = sum(1 for r in live if (r.get("tokens_source") or "") in {"unrecorded", "none"} and (r.get("llm_provider") or "none") not in {"none", "lexicon", "rule"})
+    lexicon_or_free = sum(1 for r in live if (r.get("llm_provider") or "") in {"none", "lexicon", "rule", "groq"})
     harnesses = sorted({r["harness"] for r in live})
     palette = ["#2563eb", "#16a34a", "#d97706", "#9333ea", "#dc2626", "#0891b2"]
     color = {h: palette[i % len(palette)] for i, h in enumerate(harnesses)}
     days = sorted({r["date"] for r in live})[-30:]
     per = {(d, h): 0 for d in days for h in harnesses}
-    stocks = {d: 0 for d in days}
+    day_tokens = {d: 0 for d in days}
     for r in live:
-        if r["date"] in stocks:
-            per[(r["date"], r["harness"])] += r.get("total_tokens") or 0
-            stocks[r["date"]] += r.get("tickers_written") or 0
+        if r["date"] in day_tokens:
+            per[(r["date"], r["harness"])] += r.get("tickers_written") or 0
+            day_tokens[r["date"]] += r.get("total_tokens") or 0
     top = max([sum(per[(d, h)] for h in harnesses) for d in days] + [1])
     w, h_px, bw = 340, 150, max(4, int(320 / max(1, len(days))) - 2)
     bars = []
     for i, d in enumerate(days):
         x, y = 10 + i * (bw + 2), h_px
+        day_total = sum(per[(d, hn)] for hn in harnesses)
         for hn in harnesses:
             v = per[(d, hn)]
             if not v:
                 continue
             bh = max(1, int(v / top * (h_px - 20)))
             y -= bh
-            bars.append(f'<rect x="{x}" y="{y}" width="{bw}" height="{bh}" fill="{color[hn]}"><title>{d} {hn}: {v:,} tokens</title></rect>')
-        if not any(per[(d, hn)] for hn in harnesses):
-            bars.append(f'<rect x="{x}" y="{h_px - 2}" width="{bw}" height="2" fill="#94a3b8"><title>{d}: 0 tokens, {stocks[d]} stocks</title></rect>')
-    legend = " ".join(f'<span class="lg"><i style="background:{color[hn]}"></i>{_esc(hn)}</span>' for hn in harnesses)
+            bars.append(
+                f'<rect x="{x}" y="{y}" width="{bw}" height="{bh}" fill="{color[hn]}">'
+                f"<title>{d} {hn}: {v:,} reports, {day_tokens[d]:,} tokens</title></rect>"
+            )
+        if day_total == 0:
+            bars.append(
+                f'<rect x="{x}" y="{h_px - 2}" width="{bw}" height="2" fill="#94a3b8">'
+                f"<title>{d}: no reports</title></rect>"
+            )
+    legend = " ".join(
+        f'<span class="lg"><i style="background:{color[hn]}"></i>{_esc(hn)}</span>' for hn in harnesses
+    )
 
     def table(head, body_rows):
         th = "".join(f"<th>{_esc(c)}</th>" for c in head)
@@ -249,54 +280,139 @@ def summary_html(rows: list[dict]) -> str:
     by_h = []
     for k, a in _agg(live, lambda r: r["harness"]):
         n = max(1, a["written"])
-        by_h.append([k, len(a["runs"]), f"{a['written']:,}", f"{a['tokens']:,}", f"{a['tokens'] / n:,.0f}",
-                     _money(a["cost"]) + (" +?" if a["unpriced"] else ""), _money(a["list"]), _money(a["cost"] / n * 50),
-                     _money(a["list"] / n * 50)])
+        by_h.append([
+            k, len(a["runs"]), f"{a['written']:,}", _fmt_runtime(a["runtime"]),
+            f"{a['tokens']:,}", f"{a['tokens'] / n:,.0f}",
+            _money(a["cost"]) + (" +unpriced" if a["unpriced"] else ""),
+            _money(a["list"]), _money(a["cost"] / n * 50), _money(a["list"] / n * 50),
+        ])
     by_d = []
     for k, a in reversed(_agg(live, lambda r: f"{r['date']}|{r['harness']}")):
         d, hn = k.split("|", 1)
         n = max(1, a["written"])
-        by_d.append([d, hn, len(a["runs"]), f"{a['written']:,}", f"{a['tokens']:,}",
-                     _money(a["cost"]) + (" +?" if a["unpriced"] else ""), _money(a["cost"] / n * 50), _money(a["list"] / n * 50)])
-    recent = [[r["timestamp"][:16].replace("T", " "), r["harness"], r["model"], r["tickers_written"],
-               f"{r.get('total_tokens') or 0:,}", r.get("tokens_source"), _money(r.get("est_cost_usd")),
-               f"{r.get('runtime_s') or 0:,.0f}s"] for r in reversed(live[-25:])]
+        by_d.append([
+            d, hn, len(a["runs"]), f"{a['written']:,}", _fmt_runtime(a["runtime"]),
+            f"{a['tokens']:,}",
+            _money(a["cost"]) + (" +unpriced" if a["unpriced"] else ""),
+            _money(a["cost"] / n * 50), _money(a["list"] / n * 50),
+        ])
+    recent = [[
+        (r["timestamp"][:16]).replace("T", " "), r["harness"], r["model"],
+        f"{r.get('tickers_written') or 0}/{r.get('tickers_requested') or 0}",
+        f"{r.get('total_tokens') or 0:,}", r.get("tokens_source") or "none",
+        _money(r.get("est_cost_usd")), _fmt_runtime(r.get("runtime_s") or 0),
+    ] for r in reversed(live[-25:])]
     updated = max((r["timestamp"] for r in rows), default="never")
+    zero_note = (
+        "Zero dollars and zero tokens here usually mean a run used the lexicon script, "
+        "the no-key writer, or Groq's free tier, not that the collector failed. "
+        "Stock counts and runtimes are the activity signal. "
+        "Rows marked unrecorded had no token counts saved at the time; those numbers were not estimated."
+        if tot_tok == 0 or lexicon_or_free
+        else "Spent is what was billed. List price prices the same tokens at the provider's published rate."
+    )
+    if unrecorded:
+        zero_note += f" {unrecorded} paid-looking row(s) have unrecorded token counts."
+    token_label = "0 recorded" if tot_tok == 0 else f"{tot_tok:,}"
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agents Unite cost burn-down</title>
 <style>
 body{{font:15px/1.45 -apple-system,system-ui,Segoe UI,Roboto,sans-serif;margin:0;padding:16px;color:#0f172a;background:#f8fafc;max-width:900px;margin:auto}}
 h1{{font-size:20px;margin:4px 0 2px}}h2{{font-size:16px;margin:22px 0 8px}}.sub{{color:#64748b;font-size:13px}}
-.cards{{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}}@media(min-width:640px){{.cards{{grid-template-columns:repeat(4,1fr)}}}}
+.note{{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 12px;margin:12px 0;font-size:13px}}
+.cards{{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:14px 0}}@media(min-width:640px){{.cards{{grid-template-columns:repeat(3,1fr)}}}}
 .card{{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px}}.card b{{display:block;font-size:19px}}.card span{{color:#64748b;font-size:12px}}
 .tw{{overflow-x:auto;background:#fff;border:1px solid #e2e8f0;border-radius:10px}}table{{border-collapse:collapse;width:100%;font-size:13px}}
 th,td{{padding:6px 8px;border-bottom:1px solid #eef2f7;text-align:left;white-space:nowrap}}th{{background:#f1f5f9;font-weight:600}}
 svg{{width:100%;height:auto;background:#fff;border:1px solid #e2e8f0;border-radius:10px}}.lg{{font-size:12px;margin-right:10px}}.lg i{{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}}
 a{{color:#2563eb}}
 </style></head><body>
-<h1>Agents Unite cost burn-down</h1>
+<h1>Agents Unite collector activity and cost</h1>
 <div class="sub">Updated {_esc(updated)} UTC. Every collector run adds a row. Dry runs excluded.</div>
 <div class="cards">
-<div class="card"><b>{_money(tot_cost)}</b><span>spent, all time</span></div>
-<div class="card"><b>{tot_tok:,}</b><span>LLM tokens, all time</span></div>
+<div class="card"><b>{n_runs}</b><span>collector runs</span></div>
 <div class="card"><b>{tot_w:,}</b><span>stock reports written</span></div>
-<div class="card"><b>{_money(tot_cost / max(1, tot_w) * 50)}</b><span>spent per 50 stocks ({_money(tot_list / max(1, tot_w) * 50)} at list price)</span></div>
+<div class="card"><b>{tot_req:,}</b><span>tickers requested</span></div>
+<div class="card"><b>{_esc(_fmt_runtime(tot_run))}</b><span>total recorded runtime</span></div>
+<div class="card"><b>{_esc(_money(tot_cost))}</b><span>spent, all time ({_esc(_money(tot_cost / max(1, tot_w) * 50))} per 50 stocks)</span></div>
+<div class="card"><b>{_esc(token_label)}</b><span>LLM tokens ({_esc(_money(tot_list))} at list price; {_esc(_money(tot_list / max(1, tot_w) * 50))} per 50 stocks)</span></div>
 </div>
-<h2>Tokens per day (last 30 days)</h2>
-<svg viewBox="0 0 {w} {h_px + 4}" role="img" aria-label="tokens per day">{''.join(bars)}</svg>
+<div class="note">{_esc(zero_note)}</div>
+<h2>Stock reports written per day (last 30 days)</h2>
+<svg viewBox="0 0 {w} {h_px + 4}" role="img" aria-label="stock reports written per day">{''.join(bars)}</svg>
 <div>{legend}</div>
 <h2>By harness</h2>
-{table(["Harness", "Runs", "Stocks", "Tokens", "Tokens/stock", "Spent", "List price", "Spent/50", "List/50"], by_h)}
+{table(["Harness", "Runs", "Stocks", "Runtime", "Tokens", "Tokens/stock", "Spent", "List price", "Spent/50", "List/50"], by_h)}
 <h2>By day</h2>
-{table(["Day", "Harness", "Runs", "Stocks", "Tokens", "Spent", "Spent/50", "List/50"], by_d)}
+{table(["Day", "Harness", "Runs", "Stocks", "Runtime", "Tokens", "Spent", "Spent/50", "List/50"], by_d)}
 <h2>Latest runs</h2>
-{table(["When (UTC)", "Harness", "Model", "Stocks", "Tokens", "Token count", "Spent", "Runtime"], recent)}
-<p class="sub">Spent is 0 for the lexicon script and free tiers. List price prices the same tokens at the provider's published rate.
+{table(["When (UTC)", "Harness", "Model", "Written/requested", "Tokens", "Token count", "Spent", "Runtime"], recent)}
+<p class="sub">Spent is 0 for the lexicon script and free tiers. List price prices the same tokens at the provider's published rate when a token count was recorded.
 Raw data: <a href="https://github.com/rahiakil/agents-unite-agents/blob/main/data/runs/cost_log.csv">cost_log.csv</a>,
 <a href="https://github.com/rahiakil/agents-unite-agents/blob/main/data/runs/COSTS.md">COSTS.md</a>.</p>
 </body></html>
 """
+
+
+def import_persona_attempts(path: Path, runs_dir: Path = RUNS_DIR, *, write: bool = True) -> list[dict]:
+    """Rebuild persona-wake cost rows from data/attempts.jsonl.
+
+    Token fields are used only when the attempt recorded them. Older attempts
+    have no token counts; those rows are labeled unrecorded and left at 0.
+    Numbers are never invented.
+    """
+    from collections import defaultdict
+
+    attempts = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        if rec.get("record_type", "attempt") == "attempt":
+            attempts.append(rec)
+    # One reconstructed run per session date, split by provider and model.
+    groups: dict[tuple[str, str, str], list] = defaultdict(list)
+    for rec in attempts:
+        day = rec.get("session_date") or (rec.get("timestamp") or "")[:10]
+        if not day:
+            continue
+        groups[(day, rec.get("provider") or "rule", rec.get("model") or "rule")].append(rec)
+    existing = {r["run_id"] for r in load_rows(runs_dir)} if (runs_dir / "cost").exists() else set()
+    written = []
+    for (day, prov, model), recs in sorted(groups.items()):
+        run_id = f"persona-wake-reconstructed-{day}-{_safe(prov)}-{_safe(model)}"
+        if run_id in existing:
+            continue
+        sources = {r.get("tokens_source") or "" for r in recs}
+        has_tokens = any((r.get("prompt_tokens") is not None) or (r.get("completion_tokens") is not None) for r in recs)
+        if has_tokens:
+            pt = sum(int(r.get("prompt_tokens") or 0) for r in recs)
+            ct = sum(int(r.get("completion_tokens") or 0) for r in recs)
+            src = "mixed" if len(sources - {"", "none"}) > 1 else next(iter(sources - {"", "none"}), "provider")
+            notes = f"Rebuilt from attempts.jsonl ({len(recs)} attempts). Token counts as recorded."
+        else:
+            pt = ct = 0
+            src = "unrecorded"
+            notes = (f"Rebuilt from attempts.jsonl ({len(recs)} attempts). "
+                     "Token counts were not saved on these attempts and were not estimated.")
+        written_n = sum(
+            1 for r in recs
+            if r.get("merge_outcome") in {"merged", "auto_merge_requested", "dry_run"}
+            or (r.get("pr_url") and r.get("local_validation") == "pass")
+        )
+        ts = max((r.get("timestamp") or "") for r in recs) or None
+        row = make_row(
+            run_id=run_id, harness="persona-wake", date=day,
+            tickers_requested=len(recs), tickers_written=written_n,
+            llm_provider=prov, model=model, prompt_tokens=pt, completion_tokens=ct,
+            tokens_source=src, llm_calls=sum(1 for r in recs if r.get("provider") not in {None, "", "rule"}),
+            runtime_s=0.0, notes=notes, timestamp=ts,
+        )
+        if write:
+            write_run([row], runs_dir)
+        written.append(row)
+    return written
 
 
 def persona_rows(results: list[dict], *, run_id: str, runtime_s: float, dry_run: bool) -> list[dict]:
@@ -337,6 +453,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("rebuild")
     hp = sub.add_parser("html")
     hp.add_argument("out")
+    imp = sub.add_parser("import-attempts")
+    imp.add_argument("attempts", nargs="?", default=str(ROOT / "data" / "attempts.jsonl"))
     lg = sub.add_parser("log")
     lg.add_argument("--harness", required=True)
     lg.add_argument("--run-id")
@@ -364,6 +482,10 @@ def main(argv: list[str] | None = None) -> int:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(summary_html(load_rows()), encoding="utf-8")
         print(out)
+        return 0
+    if a.cmd == "import-attempts":
+        rows = import_persona_attempts(Path(a.attempts))
+        print(f"imported {len(rows)} persona rows from {a.attempts}")
         return 0
     if a.from_summary:
         s = json.loads(Path(a.from_summary).read_text())

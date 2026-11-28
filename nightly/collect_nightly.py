@@ -50,10 +50,44 @@ PT = ZoneInfo("America/Los_Angeles")
 HARNESS = "agents-unite-nightly-script"
 METHOD = "lexicon-vader-fin-v1+nightly-script-v1"
 UA = "Mozilla/5.0 (X11; Linux x86_64) agents-unite-nightly/1.0 (+https://github.com/rahiakil/agents-unite-agents)"
-# SEC fair-access policy wants a contact email in the User-Agent. Set SEC_CONTACT
-# (an Actions secret in this repo). Without it the SEC step is skipped.
-SEC_CONTACT = os.environ.get("SEC_CONTACT", "").strip()
-SEC_UA = f"agents-unite-nightly/1.0 {SEC_CONTACT}"
+# SEC fair-access policy wants a name and a contact email in the User-Agent.
+# SEC_CONTACT may be "Name email@domain" (preferred), or just an email.
+# SEC_CONTACT_NAME and SEC_CONTACT_EMAIL can be set instead. Default is
+# Parag Paul <parag@rigai.co>. The SEC step is skipped only if the contact
+# has no email after those are applied.
+DEFAULT_SEC_NAME = "Parag Paul"
+DEFAULT_SEC_EMAIL = "parag@rigai.co"
+EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+
+
+def parse_sec_contact(raw: str | None = None, name: str | None = None, email: str | None = None) -> tuple[str, str] | None:
+    raw = (os.environ.get("SEC_CONTACT", "") if raw is None else raw).strip()
+    name = (os.environ.get("SEC_CONTACT_NAME", "") if name is None else name).strip()
+    email = (os.environ.get("SEC_CONTACT_EMAIL", "") if email is None else email).strip()
+    if raw:
+        parts = raw.split()
+        emails = [p.strip("<>") for p in parts if EMAIL_RE.fullmatch(p.strip("<>"))]
+        names = [p for p in parts if not EMAIL_RE.fullmatch(p.strip("<>"))]
+        if emails:
+            email = email or emails[-1]
+        if names and not name:
+            name = " ".join(names)
+        elif not email and EMAIL_RE.fullmatch(raw.strip("<>")):
+            email = raw.strip("<>")
+    if not email:
+        if raw or name:
+            return None
+        email = DEFAULT_SEC_EMAIL
+    if not name:
+        name = DEFAULT_SEC_NAME
+    return name, email
+
+
+def sec_user_agent(raw: str | None = None, name: str | None = None, email: str | None = None) -> str | None:
+    parsed = parse_sec_contact(raw=raw, name=name, email=email)
+    if not parsed:
+        return None
+    return f"{parsed[0]} {parsed[1]}"
 WINDOW_H = 72
 SEC_FORMS = {"8-K", "8-K/A", "10-Q", "10-K", "10-K/A"}
 
@@ -367,12 +401,13 @@ def fetch_news(ticker: str, aliases: list[str], d: date, cache: Path | None) -> 
 
 # ---------------------------------------------------------------- SEC filings
 def fetch_filings(cik: str, d: date, cache: Path | None) -> tuple[list[dict], str | None]:
-    if not cik or not SEC_CONTACT:
+    ua = sec_user_agent()
+    if not cik or not ua:
         return [], None
     c10 = cik.zfill(10)
     try:
         data = json.loads(http_get(f"https://data.sec.gov/submissions/CIK{c10}.json",
-                                   headers={"User-Agent": SEC_UA, "Accept": "application/json"}, cache=cache))
+                                   headers={"User-Agent": ua, "Accept": "application/json"}, cache=cache))
     except Exception as exc:  # noqa: BLE001
         return [], str(exc)[:160]
     rec = data.get("filings", {}).get("recent", {})

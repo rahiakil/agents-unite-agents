@@ -4,7 +4,7 @@ Rebuilt by `python -m harness.costs rebuild` after every collector run. Raw rows
 
 `est cost` is what was actually spent (0 for the lexicon script and free tiers). `list price` prices the same tokens at the provider's published rate. Rows with `tokens_source: estimated` used 4 characters per token.
 
-All time: 26 runs, 3,759 stock reports, 0 tokens, est cost $0.0000, 0 tokens per stock, $0.0000 per 50 stocks.
+All time: 39 runs, 3,793 stock reports written, 41m 7s recorded runtime, 0 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
 
 ## By harness
 
@@ -13,15 +13,21 @@ All time: 26 runs, 3,759 stock reports, 0 tokens, est cost $0.0000, 0 tokens per
 | grokbot-backfill | 21 | 2,092 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 78 |
 | grokbot-routine | 2 | 200 | 0 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 | 33 |
 | nightly-script | 3 | 1,467 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 256 |
+| persona-wake | 13 | 34 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 0 |
 
 ## By day and harness
 
 | Day | Harness | Runs | Stocks written | Tokens | Est cost | List price | Cost/50 stocks |
 |---|---|---|---|---|---|---|---|
+| 2026-11-27 | persona-wake | 4 | 12 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-27 | nightly-script | 1 | 501 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-26 | persona-wake | 4 | 18 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-25 | grokbot-routine | 1 | 100 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 |
+| 2026-11-24 | persona-wake | 1 | 1 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-24 | nightly-script | 1 | 484 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-23 | persona-wake | 1 | 1 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-23 | nightly-script | 1 | 482 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-21 | persona-wake | 3 | 2 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-20 | grokbot-routine | 1 | 100 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 |
 | 2026-11-19 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-18 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
@@ -52,6 +58,8 @@ All time: 26 runs, 3,759 stock reports, 0 tokens, est cost $0.0000, 0 tokens per
 | grokbot | grokbot | 2 | 0 | $0.0000 | $0.0000 |
 | groq | mixed:openai/gpt-oss-120b+openai/gpt-oss-20b | 300 | 0 | $0.0000 | $0.0000 |
 | groq | mixed:openai/gpt-oss-120b+openai/gpt-oss-20b+qwen/qwen3.8-27b | 100 | 0 | $0.0000 | $0.0000 |
-| groq | openai/gpt-oss-120b | 991 | 0 | $0.0000 | $0.0000 |
-| groq | openai/gpt-oss-20b | 698 | 0 | $0.0000 | $0.0000 |
+| groq | openai/gpt-oss-120b | 995 | 0 | $0.0000 | $0.0000 |
+| groq | openai/gpt-oss-20b | 701 | 0 | $0.0000 | $0.0000 |
+| groq | qwen/qwen3.8-27b | 4 | 0 | $0.0000 | $0.0000 |
 | lexicon | lexicon-vader-fin-v1 | 0 | 0 | $0.0000 | $0.0000 |
+| rule | rule | 0 | 0 | $0.0000 | $0.0000 |

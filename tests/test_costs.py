@@ -49,6 +49,39 @@ class CostTests(unittest.TestCase):
         self.assertEqual(groq["total_tokens"], 1000)
         self.assertEqual(groq["tickers_written"], 1)
 
+    def test_zero_token_page_leads_with_activity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runs = Path(tmp)
+            costs.write_run([costs.make_row(run_id="n1", harness="nightly-script", date="2026-11-27",
+                                            tickers_requested=503, tickers_written=501, llm_provider="lexicon",
+                                            model="lexicon-vader-fin-v1", runtime_s=270)], runs)
+            page = costs.summary_html(costs.load_rows(runs))
+            self.assertIn("501", page)
+            self.assertIn("stock reports written", page)
+            self.assertIn("collector runs", page)
+            self.assertIn("Stock reports written per day", page)
+            self.assertIn("Zero dollars and zero tokens", page)
+            self.assertIn("4m 30s", page)
+            self.assertNotIn("\u2014", page)
+
+    def test_import_persona_attempts_does_not_invent_tokens(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            attempts = Path(tmp) / "attempts.jsonl"
+            attempts.write_text(
+                '{"record_type":"attempt","session_date":"2026-11-27","provider":"groq",'
+                '"model":"openai/gpt-oss-20b","merge_outcome":"auto_merge_requested",'
+                '"pr_url":"https://example.com/1","timestamp":"2026-11-27T12:00:00Z"}\n'
+                '{"record_type":"attempt","session_date":"2026-11-27","provider":"rule",'
+                '"model":"rule","merge_outcome":"not_submitted","timestamp":"2026-11-27T12:01:00Z"}\n'
+            )
+            rows = costs.import_persona_attempts(attempts, Path(tmp) / "runs", write=True)
+            self.assertEqual(len(rows), 2)
+            groq = next(r for r in rows if r["llm_provider"] == "groq")
+            self.assertEqual(groq["tickers_written"], 1)
+            self.assertEqual(groq["total_tokens"], 0)
+            self.assertEqual(groq["tokens_source"], "unrecorded")
+            self.assertIn("not estimated", groq["notes"])
+
 
 if __name__ == "__main__":
     unittest.main()
