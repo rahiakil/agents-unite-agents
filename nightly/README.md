@@ -10,8 +10,9 @@ What each report contains, per S&P 500 ticker and session:
   close days). Date-only items dated on the session day are dropped because they
   may have appeared after the close.
 - Close, change, volume and 52-week range from Yahoo Finance daily bars.
-- SEC EDGAR 8-K, 10-Q and 10-K filings dated in the window (needs the
-  `SEC_CONTACT` secret, because SEC's fair-access policy wants a contact email).
+- SEC EDGAR 8-K, 10-Q and 10-K filings dated in the window. The User-Agent is a
+  name plus email (default `Parag Paul parag@rigai.co`). Override with the
+  `SEC_CONTACT` secret, which should be written as `Name email@domain`.
 - A word-list score (VADER plus a finance lexicon). Front matter says
   `harness: agents-unite-nightly-script`, `score_source: lexicon`, `llm_tokens: 0`.
 

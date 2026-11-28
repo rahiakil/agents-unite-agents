@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "run_id": "persona-wake-reconstructed-2026-11-23-rule-rule",
+      "date": "2026-11-23",
+      "timestamp": "2026-11-23T22:33:43Z",
+      "harness": "persona-wake",
+      "tickers_requested": 1,
+      "tickers_written": 1,
+      "llm_provider": "rule",
+      "model": "rule",
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "tokens_source": "unrecorded",
+      "llm_calls": 0,
+      "est_cost_usd": 0.0,
+      "list_price_usd": null,
+      "runtime_s": 0.0,
+      "tokens_per_stock": 0.0,
+      "cost_per_stock": 0.0,
+      "cost_per_50_stocks": 0.0,
+      "list_cost_per_50_stocks": null,
+      "dry_run": false,
+      "notes": "Rebuilt from attempts.jsonl (1 attempts). Token counts were not saved on these attempts and were not estimated."
+    }
+  ]
+}
