@@ -1,0 +1,71 @@
+{
+  "status": "ok",
+  "as_of": "2025-08-05",
+  "generated_at": "2026-11-28T01:10:18Z",
+  "harness": "agents-unite-nightly-script",
+  "method": "lexicon-vader-fin-v1+nightly-script-v1",
+  "backfill": true,
+  "early_close": false,
+  "tickers_requested": 503,
+  "already_present": 0,
+  "tickers_written": 499,
+  "skipped_thin": 0,
+  "preliminary": 371,
+  "headlines_kept": 253,
+  "headlines_raw": 1756,
+  "news_errors": 0,
+  "sec_filings": 149,
+  "sec_errors": 0,
+  "bullish": 3,
+  "bearish": 2,
+  "neutral": 123,
+  "avg_sentiment": 0.024,
+  "market_context": {
+    "S&P 500": {
+      "close": 6299.1899,
+      "change_pct": -0.486
+    },
+    "Nasdaq Composite": {
+      "close": 20916.5508,
+      "change_pct": -0.651
+    },
+    "Dow Jones": {
+      "close": 44111.7383,
+      "change_pct": -0.14
+    },
+    "Russell 2000": {
+      "close": 2225.6699,
+      "change_pct": 0.604
+    },
+    "VIX": {
+      "close": 17.85,
+      "change_pct": 1.884
+    },
+    "US 10y yield": {
+      "close": 4.196,
+      "change_pct": -0.095
+    },
+    "WTI crude": {
+      "close": 65.16,
+      "change_pct": -1.705
+    },
+    "Gold": {
+      "close": 3434.7,
+      "change_pct": 0.242
+    }
+  },
+  "http": {
+    "requests": 1525,
+    "throttled": 1,
+    "cache_hits": 0,
+    "errors": 3
+  },
+  "runtime_s": 269.8,
+  "llm_tokens": 0,
+  "failures": [
+    "FDXF: price GET failed query1.finance.yahoo.com: HTTP Error 400: Bad Request",
+    "HONA: price GET failed query1.finance.yahoo.com: HTTP Error 400: Bad Request",
+    "Q: price no bar for 2025-08-05",
+    "VYLR: price GET failed query1.finance.yahoo.com: HTTP Error 400: Bad Request"
+  ]
+}

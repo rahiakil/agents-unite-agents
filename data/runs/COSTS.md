@@ -4,7 +4,7 @@ Rebuilt by `python -m harness.costs rebuild` after every collector run. Raw rows
 
 `est cost` is what was actually spent (0 for the lexicon script and free tiers). `list price` prices the same tokens at the provider's published rate. Rows with `tokens_source: estimated` used 4 characters per token.
 
-All time: 39 runs, 3,793 stock reports written, 41m 7s recorded runtime, 0 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
+All time: 40 runs, 4,292 stock reports written, 45m 36s recorded runtime, 0 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
 
 ## By harness
 
@@ -12,6 +12,7 @@ All time: 39 runs, 3,793 stock reports written, 41m 7s recorded runtime, 0 recor
 |---|---|---|---|---|---|---|---|---|
 | grokbot-backfill | 21 | 2,092 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 78 |
 | grokbot-routine | 2 | 200 | 0 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 | 33 |
+| nightly-backfill | 1 | 499 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 270 |
 | nightly-script | 3 | 1,467 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 256 |
 | persona-wake | 13 | 34 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 0 |
 
@@ -50,6 +51,7 @@ All time: 39 runs, 3,793 stock reports written, 41m 7s recorded runtime, 0 recor
 | 2026-10-26 | grokbot-backfill | 1 | 97 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-10-23 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-10-22 | grokbot-backfill | 1 | 100 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2025-08-05 | nightly-backfill | 1 | 499 | 0 | $0.0000 | $0.0000 | $0.0000 |
 
 ## By model
 
