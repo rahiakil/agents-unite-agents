@@ -4,7 +4,7 @@ Rebuilt by `python -m harness.costs rebuild` after every collector run. Raw rows
 
 `est cost` is what was actually spent (0 for the lexicon script and free tiers). `list price` prices the same tokens at the provider's published rate. Rows with `tokens_source: estimated` used 4 characters per token.
 
-All time: 64 runs, 12,799 stock reports written, 1h 55m recorded runtime, 0 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
+All time: 65 runs, 12,823 stock reports written, 2h 0m recorded runtime, 13,964 recorded LLM tokens, est cost $0.0000, $0.0000 per 50 stocks. A zero token or dollar total is expected for the lexicon script and free tiers; it does not mean the collector did nothing.
 
 ## By harness
 
@@ -14,13 +14,13 @@ All time: 64 runs, 12,799 stock reports written, 1h 55m recorded runtime, 0 reco
 | grokbot-routine | 2 | 200 | 0 | 0 | $0.0000 +unpriced | $0.0000 | $0.0000 | 33 |
 | nightly-backfill | 25 | 9,006 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 178 |
 | nightly-script | 3 | 1,467 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 256 |
-| persona-wake | 13 | 34 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 | 0 |
+| persona-wake | 14 | 58 | 13,964 | 241 | $0.0000 | $0.0011 | $0.0000 | 20 |
 
 ## By day and harness
 
 | Day | Harness | Runs | Stocks written | Tokens | Est cost | List price | Cost/50 stocks |
 |---|---|---|---|---|---|---|---|
-| 2026-11-27 | persona-wake | 4 | 12 | 0 | $0.0000 | $0.0000 | $0.0000 |
+| 2026-11-27 | persona-wake | 5 | 36 | 13,964 | $0.0000 | $0.0011 | $0.0000 |
 | 2026-11-27 | nightly-script | 1 | 501 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-27 | nightly-backfill | 1 | 0 | 0 | $0.0000 | $0.0000 | $0.0000 |
 | 2026-11-26 | persona-wake | 4 | 18 | 0 | $0.0000 | $0.0000 | $0.0000 |
@@ -84,8 +84,8 @@ All time: 64 runs, 12,799 stock reports written, 1h 55m recorded runtime, 0 reco
 | grokbot | grokbot | 2 | 0 | $0.0000 | $0.0000 |
 | groq | mixed:openai/gpt-oss-120b+openai/gpt-oss-20b | 300 | 0 | $0.0000 | $0.0000 |
 | groq | mixed:openai/gpt-oss-120b+openai/gpt-oss-20b+qwen/qwen3.8-27b | 100 | 0 | $0.0000 | $0.0000 |
-| groq | openai/gpt-oss-120b | 995 | 0 | $0.0000 | $0.0000 |
-| groq | openai/gpt-oss-20b | 701 | 0 | $0.0000 | $0.0000 |
-| groq | qwen/qwen3.8-27b | 4 | 0 | $0.0000 | $0.0000 |
+| groq | openai/gpt-oss-120b | 998 | 2,180 | $0.0000 | $0.0005 |
+| groq | openai/gpt-oss-20b | 703 | 1,658 | $0.0000 | $0.0002 |
+| groq | qwen/qwen3.8-27b | 6 | 1,202 | $0.0000 | $0.0004 |
 | lexicon | lexicon-vader-fin-v1 | 0 | 0 | $0.0000 | $0.0000 |
-| rule | rule | 0 | 0 | $0.0000 | $0.0000 |
+| rule | rule | 11 | 8,924 | $0.0000 | $0.0000 |
