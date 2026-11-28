@@ -224,7 +224,7 @@ def _fmt_runtime(seconds: float) -> str:
     return f"{hours}h {minutes}m"
 
 
-def summary_html(rows: list[dict]) -> str:
+def summary_html(rows: list[dict], progress: dict | None = None) -> str:
     """Mobile-friendly static page. Leads with activity (runs, stocks, runtime)
     so a zero-token or free-tier day does not look like nothing happened."""
     live = [r for r in rows if not r.get("dry_run")]
@@ -339,6 +339,7 @@ a{{color:#2563eb}}
 <div class="card"><b>{_esc(token_label)}</b><span>LLM tokens ({_esc(_money(tot_list))} at list price; {_esc(_money(tot_list / max(1, tot_w) * 50))} per 50 stocks)</span></div>
 </div>
 <div class="note">{_esc(zero_note)}</div>
+{_progress_html(progress)}
 <h2>Stock reports written per day (last 30 days)</h2>
 <svg viewBox="0 0 {w} {h_px + 4}" role="img" aria-label="stock reports written per day">{''.join(bars)}</svg>
 <div>{legend}</div>
@@ -353,6 +354,41 @@ Raw data: <a href="https://github.com/rahiakil/agents-unite-agents/blob/main/dat
 <a href="https://github.com/rahiakil/agents-unite-agents/blob/main/data/runs/COSTS.md">COSTS.md</a>.</p>
 </body></html>
 """
+
+
+def _progress_html(p: dict | None) -> str:
+    if not p:
+        return ""
+    days = p.get("days") or {}
+    merged = sorted(k for k, v in days.items() if v.get("state") == "merged")
+    skipped = sorted(k for k, v in days.items() if v.get("state") == "skipped")
+    rows = [
+        ("Status", f"{p.get('status')}" + (f" ({p.get('stop_reason')})" if p.get("stop_reason") else "")),
+        ("Newest session", p.get("newest")),
+        ("Earliest session reached", p.get("earliest_merged") or "none yet"),
+        ("Next session to collect", p.get("cursor")),
+        ("Sessions merged", f"{len(merged):,}"),
+        ("Sessions left to reach one year (" + str(p.get("year_target")) + ")", f"{p.get('year_sessions_remaining', 'n/a')}"),
+        ("Reports written", f"{p.get('reports_written', 0):,}"),
+        ("Preliminary reports (no dated news yet)", f"{p.get('preliminary_reports', 0):,}"),
+        ("Skipped sessions", ", ".join(skipped) or "none"),
+        ("Backfill runs", f"{p.get('runs', 0):,}"),
+        ("Updated", p.get("updated_at")),
+    ]
+    body = "".join(f"<tr><th>{_esc(k)}</th><td>{_esc(v)}</td></tr>" for k, v in rows)
+    recent = "".join(
+        f"<tr><td>{_esc(k)}</td><td>{days[k].get('reports', 0)}</td><td>{days[k].get('preliminary', 0)}</td>"
+        f"<td>{days[k].get('headlines', 0)}</td><td>{_esc(_fmt_runtime(days[k].get('runtime_s') or 0))}</td>"
+        f"<td>{'<a href=\"' + _esc(days[k]['pr']) + '\">PR</a>' if days[k].get('pr') else ''}</td></tr>"
+        for k in merged[:12]
+    )
+    return (
+        "<h2>History backfill progress</h2>"
+        f'<div class="tw"><table><tbody>{body}</tbody></table></div>'
+        "<h2>Oldest sessions merged</h2>"
+        '<div class="tw"><table><thead><tr><th>Session</th><th>Reports</th><th>Preliminary</th><th>Headlines</th>'
+        f"<th>Runtime</th><th>PR</th></tr></thead><tbody>{recent}</tbody></table></div>"
+    )
 
 
 def import_persona_attempts(path: Path, runs_dir: Path = RUNS_DIR, *, write: bool = True) -> list[dict]:
@@ -480,7 +516,9 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "html":
         out = Path(a.out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(summary_html(load_rows()), encoding="utf-8")
+        prog = ROOT / "data" / "backfill" / "progress.json"
+        progress = json.loads(prog.read_text(encoding="utf-8")) if prog.is_file() else None
+        out.write_text(summary_html(load_rows(), progress), encoding="utf-8")
         print(out)
         return 0
     if a.cmd == "import-attempts":

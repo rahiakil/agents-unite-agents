@@ -27,7 +27,10 @@ STATUS=0
 
 clone() {
   rm -rf "$WORK/ledger"
-  git clone -q --depth 50 "https://x-access-token:${GH_TOKEN}@github.com/${R}.git" "$WORK/ledger" || return 1
+  # Blobless sparse clone: the ledger grows by about 1 MB per backfilled day, so
+  # only the validator code and the session folders being written are checked out.
+  git clone -q --depth 50 --filter=blob:none --sparse "https://x-access-token:${GH_TOKEN}@github.com/${R}.git" "$WORK/ledger" || return 1
+  git -C "$WORK/ledger" sparse-checkout set --no-cone '/*' '!/data/' '/data/README.md' $(for d in ${SESSIONS_FOR_CLONE:-}; do echo "/data/$d/"; done) >/dev/null || return 1
   git -C "$WORK/ledger" config user.name "Parag Paul"
   git -C "$WORK/ledger" config user.email "parag.paul@gmail.com"
 }
@@ -100,6 +103,11 @@ publish_part() {  # $1 date, $2 part label, $3 file listing ticker dirs, $4 summ
   return 1
 }
 
+if [[ "${SESSIONS:-auto}" == "auto" ]]; then
+  SESSIONS_FOR_CLONE="$("$PY" "$HERE/recent_sessions.py" 3)"
+else
+  SESSIONS_FOR_CLONE="$SESSIONS"
+fi
 clone || { log "ledger clone failed"; exit 1; }
 LIST_SESSIONS="$(resolve_sessions)"
 [[ -n "$LIST_SESSIONS" ]] || { log "no session to collect"; exit 0; }
@@ -117,16 +125,22 @@ print('true' if datetime.now(timezone.utc) - C.close_dt(date.fromisoformat('$D')
   fi
   ARGS=(--session "$D" --out "$WORK/out" --slug "$SLUG" --github-user "$GH_USER" --summary "$WORK/summary-$D.json")
   [[ "$BF" == "true" ]] && ARGS+=(--backfill)
+  [[ "${PRELIMINARY:-false}" == "true" ]] && ARGS+=(--preliminary)
   [[ -n "${LIMIT:-}" ]] && ARGS+=(--limit "$LIMIT")
   "$PY" "$HERE/collect_nightly.py" "${ARGS[@]}" | tail -45
   S="$WORK/summary-$D.json"
   [[ -f "$S" ]] || { log "$D: no summary (not a session?)"; continue; }
+  if [[ "$("$PY" -c "import json;print(json.load(open('$S'))['status'])")" == "throttled" ]]; then
+    log "$D: news source throttled; stopping without publishing"
+    STATUS=3
+    break
+  fi
   # Cost row: lexicon only, zero tokens. Logged even when publishing fails.
-  CARGS=(--harness nightly-script --provider lexicon --model lexicon-vader-fin-v1 --from-summary "$S")
+  CARGS=(--harness "${COST_HARNESS:-nightly-script}" --provider lexicon --model lexicon-vader-fin-v1 --from-summary "$S")
   [[ "${DRY_RUN:-false}" == "true" ]] && CARGS+=(--dry-run)
-  [[ -n "${GITHUB_RUN_ID:-}" ]] && CARGS+=(--run-id "nightly-script-$D-gh${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}")
+  [[ -n "${GITHUB_RUN_ID:-}" ]] && CARGS+=(--run-id "${COST_HARNESS:-nightly-script}-$D-gh${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT:-1}")
   (cd "$ROOT" && PYTHONPATH=src "$PY" -m harness.costs log "${CARGS[@]}") || true
-  cp "$S" "$ROOT/data/runs/nightly/" 2>/dev/null || { mkdir -p "$ROOT/data/runs/nightly" && cp "$S" "$ROOT/data/runs/nightly/"; }
+  mkdir -p "$ROOT/data/runs/${SUMMARY_DIR:-nightly}" && cp "$S" "$ROOT/data/runs/${SUMMARY_DIR:-nightly}/"
   # New report dirs only (the collector skips tickers already on main).
   ( cd "$WORK/out" && for f in data/"$D"/*/report."$SLUG".md; do
       t="$(basename "$(dirname "$f")")"

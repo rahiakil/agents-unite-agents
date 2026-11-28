@@ -7,10 +7,11 @@ on:
     branches: [main]
     paths:
       - "data/runs/**"
+      - "data/backfill/**"
       - "src/harness/costs.py"
       - ".github/workflows/pages.yml"
   workflow_run:
-    workflows: ["Persona wake", "Nightly collection (zero-token)"]
+    workflows: ["Persona wake", "Nightly collection (zero-token)", "History backfill (zero-token)"]
     types: [completed]
   workflow_dispatch:
 

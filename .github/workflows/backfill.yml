@@ -1,0 +1,76 @@
+name: History backfill (zero-token)
+
+# Walks NYSE sessions backward from Nov 27 2026, newest first, one batch PR per
+# session on the ledger, all S&P 500 tickers, lexicon scores only (no LLM).
+# Resumable: the cursor is data/backfill/progress.json. Each hourly run works for
+# about 50 minutes, then commits progress. It stops cleanly on Google throttling
+# and resumes on the next run. See nightly/backfill_history.py for stop rules.
+on:
+  schedule:
+    - cron: "20 * * * *"
+  workflow_dispatch:
+    inputs:
+      budget_min:
+        description: Minutes of collecting before this run stops starting new days.
+        type: string
+        default: "50"
+      force:
+        description: Resume even if progress says finished or paused.
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: history-backfill
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      LEDGER_REPO: rahiakil/agents-unite
+      LEDGER_TOKEN: ${{ secrets.LEDGER_TOKEN }}
+      GH_TOKEN: ${{ secrets.LEDGER_TOKEN }}
+      SEC_CONTACT: ${{ secrets.SEC_CONTACT }}
+      BACKFILL_BUDGET_MIN: ${{ inputs.budget_min || '50' }}
+      BACKFILL_FORCE: ${{ inputs.force && '1' || '0' }}
+      NIGHTLY_CACHE: ${{ github.workspace }}/.cache/backfill
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the one dependency
+        run: pip install vaderSentiment==3.3.2
+
+      - name: Backfill
+        run: python3 nightly/backfill_history.py
+
+      - name: Commit progress and cost rows
+        if: always()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/backfill data/runs
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          git commit -q -m "backfill: progress $(python3 -c "import json;p=json.load(open('data/backfill/progress.json'));print(p['cursor'], p['status'])")"
+          for i in 1 2 3 4 5; do
+            if git pull -q --rebase origin "${GITHUB_REF_NAME}"; then
+              git push -q && exit 0
+            fi
+            PYTHONPATH=src python3 -m harness.costs rebuild
+            git add data/runs
+            GIT_EDITOR=true git rebase --continue || true
+            sleep $((i * 5))
+          done
+          echo "progress push failed"
+          exit 1
