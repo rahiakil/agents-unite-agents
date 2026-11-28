@@ -90,3 +90,21 @@ class SecContactTests(unittest.TestCase):
         self.assertEqual(N.sec_user_agent(raw="", name="", email=""), "Parag Paul parag@rigai.co")
         self.assertEqual(N.sec_user_agent(raw="Jane Doe jane@example.com"), "Jane Doe jane@example.com")
         self.assertIsNone(N.parse_sec_contact(raw="Name Only", name="", email=""))
+
+
+class BackfillTests(unittest.TestCase):
+    def test_preliminary_report_validates(self):
+        rec = _rec()
+        rec.update(items=[], scored=[], lex=None, filings=[])
+        md, sj = N.render(rec, date(2025, 8, 5), "2026-11-28T01:00:00Z", "rahiakil-grokbot", "rahiakil", True,
+                          preliminary=True)
+        self.assertIn("preliminary: true", md)
+        self.assertIn("No dated news found", md)
+        self.assertTrue(sj["preliminary"])
+        self.assertEqual(len(sj["sources"]), 1)
+
+    def test_old_sessions_use_a_fixed_chart_window(self):
+        key, url = N.chart_url("AAPL", date(2024, 3, 12))
+        self.assertEqual(key, "AAPL|2024")
+        self.assertIn("period1=", url)
+        self.assertIn("range=2y", N.chart_url("AAPL", None)[1])

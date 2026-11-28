@@ -42,3 +42,29 @@ auto-merge. Run it by hand from the Actions tab with `sessions` set to dates.
 
 Every run appends a row to `data/runs/` (see `src/harness/costs.py`), and the
 Cost page workflow publishes it to GitHub Pages.
+
+## History backfill
+
+`backfill_history.py` and `.github/workflows/backfill.yml` walk NYSE sessions
+backward from 2026-11-27, newest first, one `batch/DATE-5cd8be5d` PR per
+session, all S&P 500 tickers, zero tokens. Rules:
+
+- Point in time: only news at or before the session close (1:00 pm ET on early
+  close days), Yahoo bars dated on or before the session, SEC filings dated in
+  the 72 hours before it. Reports carry `backfill: true`, `as_of`,
+  `news_cutoff`, `generated_at`, `llm_tokens: 0` and `score_source: lexicon`.
+- Tickers with no dated news still get a report with `preliminary: true` (price,
+  volume, 52-week range, filings, a 0.00 placeholder score) so a later run can
+  update it. Tickers with no price bar that day (not yet listed) are skipped.
+- Tickers already in the ledger for that day are left alone, so the earlier
+  100-ticker days are topped up to the full list.
+- The cursor is `data/backfill/progress.json`. Runs are hourly, about 50 minutes
+  each, in their own concurrency group so they never block the nightly run.
+- A run stops cleanly when Google News throttles (more than 3% of fetches fail);
+  nothing is written for that day and the next run retries it. A day that fails
+  three runs in a row is skipped and recorded.
+- The backfill finishes when Google News has no dated headline for any ticker
+  on 10 sessions in a row, or pauses if the ledger repo passes 2.5 GB
+  (`BACKFILL_MAX_REPO_KB`). `BACKFILL_FLOOR` can set a hard oldest date.
+
+Progress is shown on the cost page.

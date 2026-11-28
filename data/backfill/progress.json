@@ -1,0 +1,17 @@
+{
+ "cursor": "2026-11-27",
+ "days": {},
+ "days_merged": 0,
+ "earliest_merged": null,
+ "empty_news_streak": 0,
+ "newest": "2026-11-27",
+ "preliminary_reports": 0,
+ "prs": [],
+ "reports_written": 0,
+ "runs": 0,
+ "started_at": "2026-11-28T01:10:00Z",
+ "status": "running",
+ "stop_reason": "",
+ "updated_at": "2026-11-28T01:10:00Z",
+ "year_target": "2025-11-27"
+}

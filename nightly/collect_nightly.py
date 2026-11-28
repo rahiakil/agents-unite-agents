@@ -98,7 +98,19 @@ NYSE_HOLIDAYS = {
     "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31", "2027-06-18",
     "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24",
 }
-EARLY_CLOSE = {"2026-11-27", "2026-12-24", "2027-11-26"}
+NYSE_HOLIDAYS |= {
+    "2024-01-01", "2024-01-15", "2024-02-19", "2024-03-29", "2024-05-27", "2024-06-19", "2024-07-04",
+    "2024-09-02", "2024-11-28", "2024-12-25",
+    "2025-01-01", "2025-01-09", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26", "2025-06-19",
+    "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25",
+}
+# Older holidays are not listed; the collector also skips any day with no S&P 500 bar.
+EARLY_CLOSE = {
+    "2026-11-27", "2026-12-24", "2027-11-26",
+    "2025-07-03", "2025-11-28", "2025-12-24", "2024-07-03", "2024-11-29", "2024-12-24",
+    "2023-07-03", "2023-11-24", "2022-11-25", "2021-11-26", "2020-11-27", "2020-12-24",
+    "2019-07-03", "2019-11-29", "2019-12-24", "2018-07-03", "2018-11-23", "2018-12-24",
+}
 
 FIN_LEXICON = {
     "beat": 2.0, "beats": 2.0, "tops": 1.5, "topped": 1.5, "surge": 2.5, "surges": 2.5,
@@ -269,11 +281,25 @@ _CHART: dict[str, list] = {}
 _CHART_LOCK = threading.Lock()
 
 
-def chart_rows(ysym: str, cache: Path | None) -> list:
+def chart_url(ysym: str, d: date | None = None) -> tuple[str, str]:
+    """Recent sessions use range=2y. Older ones use a fixed window from Jan 1 of the
+    year before D to Jan 1 of the year after, so a backfill run reuses one fetch
+    per symbol for every day in that window (and the URL is cacheable)."""
+    q = urllib.parse.quote(ysym)
+    today = datetime.now(timezone.utc).date()
+    if d is None or (today - d).days < 300:
+        return f"{ysym}|2y", f"https://query1.finance.yahoo.com/v8/finance/chart/{q}?range=2y&interval=1d&includePrePost=false"
+    p1 = int(datetime(d.year - 1, 1, 1, tzinfo=timezone.utc).timestamp())
+    p2 = int(min(datetime(d.year + 1, 1, 1, tzinfo=timezone.utc), datetime.now(timezone.utc)).timestamp())
+    return (f"{ysym}|{d.year}", f"https://query1.finance.yahoo.com/v8/finance/chart/{q}?period1={p1}&period2={p2}"
+            "&interval=1d&includePrePost=false")
+
+
+def chart_rows(ysym: str, cache: Path | None, d: date | None = None) -> list:
+    key, url = chart_url(ysym, d)
     with _CHART_LOCK:
-        if ysym in _CHART:
-            return _CHART[ysym]
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(ysym)}?range=2y&interval=1d&includePrePost=false"
+        if key in _CHART:
+            return _CHART[key]
     data = json.loads(http_get(url, cache=cache))
     res = data["chart"]["result"][0]
     q = res["indicators"]["quote"][0]
@@ -284,14 +310,14 @@ def chart_rows(ysym: str, cache: Path | None) -> list:
             continue
         rows.append((datetime.fromtimestamp(t, NY).date(), c, q["volume"][i], q["high"][i], q["low"][i]))
     with _CHART_LOCK:
-        _CHART[ysym] = rows
+        _CHART[key] = rows
     return rows
 
 
 def price_on(ysym: str, d: date, cache: Path | None = None) -> dict:
     out = {"source_url": f"https://finance.yahoo.com/quote/{urllib.parse.quote(ysym)}/history"}
     try:
-        rows = [r for r in chart_rows(ysym, cache) if r[0] <= d]
+        rows = [r for r in chart_rows(ysym, cache, d) if r[0] <= d]
         if not rows or rows[-1][0] != d:
             out["error"] = f"no bar for {d}"
             return out
@@ -475,7 +501,8 @@ def detect_events(titles: list[str]) -> list[tuple[str, str]]:
 
 
 # ---------------------------------------------------------------- render
-def render(rec: dict, d: date, gen_at: str, slug: str, gh_user: str, backfill: bool) -> tuple[str, dict]:
+def render(rec: dict, d: date, gen_at: str, slug: str, gh_user: str, backfill: bool,
+           preliminary: bool = False) -> tuple[str, dict]:
     t, px, items, fil = rec["ticker"], rec["price"], rec["scored"], rec["filings"]
     s = rec["lex"] if rec["lex"] is not None else 0.0
     chash = hashlib.sha256(gh_user.lower().encode()).hexdigest()[:12]
@@ -485,7 +512,8 @@ def render(rec: dict, d: date, gen_at: str, slug: str, gh_user: str, backfill: b
     fm = ["---", f"ticker: {t}", f"date: {d}", f"github_username: {gh_user}", f"contributor_hash: {chash}",
           "daily_role: research", "focus: sentiment", f"sentiment_score: {s:.2f}", f"lexicon_score: {s:.2f}",
           "score_source: lexicon", "llm_tokens: 0", "detail_level: standard", f"harness: {HARNESS}", f"method: {METHOD}",
-          f"backfill: {'true' if backfill else 'false'}", f"as_of: {d}", f"news_cutoff: {cutoff}",
+          f"backfill: {'true' if backfill else 'false'}", f"preliminary: {'true' if preliminary else 'false'}",
+          f"as_of: {d}", f"news_cutoff: {cutoff}",
           f"generated_at: {gen_at}", f"collected_at: {gen_at}", "---", ""]
     close_note = "1:00 pm ET early close" if d.isoformat() in EARLY_CLOSE else "4:00 pm ET close"
     lead = (f"Backfilled report generated {gen_at} from sources published at or before the {d} {close_note}. Not collected live."
@@ -495,12 +523,16 @@ def render(rec: dict, d: date, gen_at: str, slug: str, gh_user: str, backfill: b
     if len(items) < 5:
         lex += "Fewer than five headlines, so the score is shrunk toward zero. "
     lex += "No language model was used. Price is reported below and is not a score input."
-    body = ["# Sentiment", "", f"Sentiment score: {s:.2f} ({label(s)}, lexicon)", "", clean(lead), "", clean(lex), "",
+    if preliminary:
+        lex = ("Preliminary report: no dated news found for this ticker in the 72 hours before the close, so the score "
+               "is a 0.00 placeholder, not a reading. Price and filings below are real. A later run may update it.")
+    body = ["# Sentiment", "", f"Sentiment score: {s:.2f} ({'preliminary, no dated news' if preliminary else label(s) + ', lexicon'})",
+            "", clean(lead), "", clean(lex), "",
             "# Key Themes", ""]
     for it in items[:6]:
         body.append(clean(f"- {it['title'][:180]} ({it.get('publisher') or 'news'}, {it['published_date']})"))
     if not items:
-        body.append("- No dated headline in the window.")
+        body.append("- No dated news found in the window.")
     pubs = sorted({i.get("publisher") or "news" for i in items})
     src_line = (f"{len(items)} headline(s) from Google News RSS search, date-bounded and filtered to the {d} close"
                 + (f" ({', '.join(pubs[:8])})" if pubs else "")
@@ -534,7 +566,7 @@ def render(rec: dict, d: date, gen_at: str, slug: str, gh_user: str, backfill: b
                  "date_precision": "day", "sentiment": "neutral"})
     sj = {"ticker": t, "date": str(d), "github_username": gh_user, "focus": "sentiment", "backfill": backfill,
           "as_of": str(d), "news_cutoff": cutoff, "generated_at": gen_at, "collected_at": gen_at, "harness": HARNESS,
-          "method": METHOD, "score_source": "lexicon", "llm_tokens": 0, "news_query": rec["news_stats"]["query"],
+          "method": METHOD, "score_source": "lexicon", "llm_tokens": 0, "preliminary": preliminary, "news_query": rec["news_stats"]["query"],
           "news_stats": {k: v for k, v in rec["news_stats"].items() if k != "query"}, "sources": srcs}
     md = "\n".join(fm + body)
     assert "\u2014" not in md and "\u2013" not in md
@@ -555,8 +587,10 @@ def run(args) -> dict:
     if not is_trading_day(d):
         log(f"{d} is not an NYSE trading day; nothing to do")
         return {"status": "no_session", "as_of": d.isoformat()}
-    cache = Path(args.cache) / d.isoformat() if args.cache else None
-    spx = price_on("^GSPC", d, cache)
+    cache_root = Path(args.cache) if args.cache else None
+    cache = cache_root / "news" / d.isoformat() if cache_root else None
+    shared = cache_root / "shared" if cache_root else None
+    spx = price_on("^GSPC", d, shared)
     if spx.get("close") is None:
         log(f"no S&P 500 bar for {d} ({spx.get('error')}); treating as no session")
         return {"status": "no_session", "as_of": d.isoformat()}
@@ -570,14 +604,25 @@ def run(args) -> dict:
 
     def work(u):
         items, st = fetch_news(u["ticker"], u["aliases"], d, cache)
-        fil, ferr = fetch_filings(u["cik"], d, cache) if args.sec else ([], None)
+        fil, ferr = fetch_filings(u["cik"], d, shared) if args.sec else ([], None)
         lex, scored = score_items(items)
-        return {"ticker": u["ticker"], "name": u["name"], "price": price_on(yahoo_symbol(u["ticker"]), d, cache),
+        return {"ticker": u["ticker"], "name": u["name"], "price": price_on(yahoo_symbol(u["ticker"]), d, shared),
                 "items": items, "scored": scored, "lex": lex, "news_stats": st, "filings": fil, "sec_error": ferr}
 
     with ThreadPoolExecutor(max_workers=args.workers) as ex:
         recs = list(ex.map(work, todo))
-    written, failures, thin = [], [], 0
+    news_err = sum(1 for r in recs if r["news_stats"]["error"])
+    if recs and news_err > max(5, 0.03 * len(recs)):
+        # Google is throttling or blocking. Write nothing so a later run redoes the day cleanly.
+        summ = {"status": "throttled", "as_of": d.isoformat(), "tickers_requested": len(uni), "news_errors": news_err,
+                "http": dict(STATS), "runtime_s": round(time.time() - t0, 1), "llm_tokens": 0,
+                "failures": [f"{r['ticker']}: news {r['news_stats']['error'][:80]}" for r in recs if r["news_stats"]["error"]][:20]}
+        if args.summary:
+            Path(args.summary).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.summary).write_text(json.dumps(summ, indent=2) + "\n")
+        log(f"{d}: {news_err} of {len(recs)} news fetches failed; treating as throttled, nothing written")
+        return summ
+    written, failures, thin, prelim = [], [], 0, 0
     for r in recs:
         px = r["price"]
         if px.get("close") is None or px.get("change_pct") is None:
@@ -585,22 +630,27 @@ def run(args) -> dict:
             continue
         if r["news_stats"]["error"]:
             failures.append(f"{r['ticker']}: news {r['news_stats']['error'][:80]}")
-        if len(r["items"]) < args.min_items:
-            thin += 1
-            failures.append(f"{r['ticker']}: {len(r['items'])} dated headline(s) in window; skipped")
             continue
-        md, sj = render(r, d, gen_at, args.slug, args.github_user, args.backfill)
+        is_prelim = False
+        if len(r["items"]) < args.min_items:
+            if not args.preliminary:
+                thin += 1
+                failures.append(f"{r['ticker']}: {len(r['items'])} dated headline(s) in window; skipped")
+                continue
+            is_prelim = True
+            prelim += 1
+        md, sj = render(r, d, gen_at, args.slug, args.github_user, args.backfill, preliminary=is_prelim)
         od = out_root / "data" / d.isoformat() / r["ticker"]
         od.mkdir(parents=True, exist_ok=True)
         (od / f"report.{args.slug}.md").write_text(md, encoding="utf-8")
         (od / f"sources.{args.slug}.json").write_text(json.dumps(sj, indent=2) + "\n", encoding="utf-8")
         written.append(r["ticker"])
-    mc = {lab: {k: v for k, v in price_on(sym, d, cache).items() if k in ("close", "change_pct")} for lab, sym in MARKET.items()}
+    mc = {lab: {k: v for k, v in price_on(sym, d, shared).items() if k in ("close", "change_pct")} for lab, sym in MARKET.items()}
     scores = [r["lex"] for r in recs if r["ticker"] in written and r["lex"] is not None]
     summ = {"status": "ok", "as_of": d.isoformat(), "generated_at": gen_at, "harness": HARNESS, "method": METHOD,
             "backfill": args.backfill, "early_close": d.isoformat() in EARLY_CLOSE,
             "tickers_requested": len(uni), "already_present": len(uni) - len(todo), "tickers_written": len(written),
-            "skipped_thin": thin, "headlines_kept": sum(len(r["items"]) for r in recs if r["ticker"] in written),
+            "skipped_thin": thin, "preliminary": prelim, "headlines_kept": sum(len(r["items"]) for r in recs if r["ticker"] in written),
             "headlines_raw": sum(r["news_stats"]["raw"] for r in recs),
             "news_errors": sum(1 for r in recs if r["news_stats"]["error"]),
             "sec_filings": sum(len(r["filings"]) for r in recs if r["ticker"] in written),
@@ -628,6 +678,8 @@ def parse_args(argv=None):
     ap.add_argument("--limit", type=int)
     ap.add_argument("--cache", default=os.environ.get("NIGHTLY_CACHE", ""))
     ap.add_argument("--no-sec", dest="sec", action="store_false")
+    ap.add_argument("--preliminary", action="store_true",
+                    help="write a preliminary report (price, filings, no news) when a ticker has no dated headline")
     ap.add_argument("--backfill", action="store_true", help="mark reports backfill: true (run after the session night)")
     ap.add_argument("--summary", help="write the run summary JSON here")
     return ap.parse_args(argv)
